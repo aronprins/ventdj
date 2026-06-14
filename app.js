@@ -18,7 +18,7 @@
     POSTS=data;
     Array.from(new Set(POSTS.map(function(p){return p.year}).filter(Boolean))).sort()
       .forEach(function(y){var o=document.createElement("option");o.value=y;o.textContent=y;yearEl.appendChild(o)});
-    POSTS.forEach(function(p){p.images.forEach(function(im){galleryItems.push({img:im,post:p})})});
+    POSTS.forEach(function(p){p.images.forEach(function(im){galleryItems.push({f:im.f,t:im.t,post:p})})});
     apply();
   }).catch(function(){
     viewerEl.innerHTML='<div class="empty">Could not load <code>data/posts.json</code>.<br>'+
@@ -136,7 +136,7 @@
       (function(it,i){
         var fig=document.createElement("figure");
         var im=document.createElement("img");
-        im.loading="lazy";im.src="images/"+it.img;im.alt=it.post.title;
+        im.loading="lazy";im.src="images/"+it.t;im.alt=it.post.title;
         fig.appendChild(im);
         fig.addEventListener("click",function(){openLightbox(items,i)});
         frag.appendChild(fig);
@@ -156,10 +156,10 @@
   // ---------- lightbox ----------
   var lb=$("#lightbox"), lbImg=$("#lbImg"), lbCap=$("#lbCap"), lbList=null, lbIndex=0;
   function openLightbox(items,i){lbList=items;lbIndex=i;showLb()}
-  function openLightboxSrc(src,post){lbList=[{img:src.replace(/^images\//,""),post:post}];lbIndex=0;showLb()}
+  function openLightboxSrc(src,post){lbList=[{f:src.replace(/^images\//,""),post:post}];lbIndex=0;showLb()}
   function showLb(){
     var it=lbList[lbIndex];
-    lbImg.src = it.img.indexOf("images/")===0?it.img:"images/"+it.img;
+    lbImg.src = "images/"+it.f;
     lbCap.innerHTML='<a class="open" href="#">'+it.post.title+'</a> · #'+
       String(it.post.id).padStart(4,"0")+' · '+it.post.date;
     lbCap.querySelector(".open").addEventListener("click",function(e){

@@ -9,6 +9,7 @@ title_re   = re.compile(r'<h1>(.*?)</h1>', re.S)
 date_re    = re.compile(r'<p class="date">(.*?)</p>', re.S)
 content_re = re.compile(r'<div class="content">(.*)</div></article>', re.S)
 img_re     = re.compile(r'(?:src|href)="\.\./images/([^"]+)"')
+pair_re    = re.compile(r'<a[^>]*href="\.\./images/([^"]+)"[^>]*>\s*<img[^>]*src="\.\./images/([^"]+)"', re.S)
 tag_re     = re.compile(r'<[^>]+>')
 ws_re      = re.compile(r'\s+')
 
@@ -39,11 +40,19 @@ for fn in sorted(os.listdir(POSTS_DIR)):
     c = content_re.search(raw)
     content = c.group(1) if c else ""
 
-    # unique images in document order
+    # An image is stored twice: a thumbnail (img src) linked to a full-size
+    # version (anchor href). Collapse each pair to one entry: {f:full, t:thumb}.
+    thumb_to_full, full_to_thumb = {}, {}
+    for full, thumb in pair_re.findall(raw):
+        if thumb != full:
+            thumb_to_full[thumb] = full
+            full_to_thumb.setdefault(full, thumb)
     seen, images = set(), []
     for im in img_re.findall(raw):
-        if im not in seen:
-            seen.add(im); images.append(im)
+        full = thumb_to_full.get(im, im)        # normalize thumbnail -> full
+        if full not in seen:
+            seen.add(full)
+            images.append({"f": full, "t": full_to_thumb.get(full, full)})
 
     posts.append({
         "id": pid,
