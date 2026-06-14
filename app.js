@@ -2,6 +2,7 @@
   "use strict";
   var POSTS=[], FILTERED=[], current=null;
   var tab="reader";               // active bottom tab: "reader" | "gallery"
+  var backTarget="list";          // where the post-view back button returns to
   var galleryItems=[], galleryShown=0, GAL_PAGE=120;
 
   var $=function(s){return document.querySelector(s)};
@@ -46,7 +47,19 @@
   }
   $("#tabReader").addEventListener("click",function(){setTab("reader")});
   $("#tabGallery").addEventListener("click",function(){setTab("gallery")});
-  backBtn.addEventListener("click",function(){ appTitle.innerHTML=DEF_TITLE; showScreen("screenList") });
+  backBtn.addEventListener("click",function(){
+    appTitle.innerHTML=DEF_TITLE;
+    if(backTarget==="gallery"){
+      tab="gallery";
+      $("#tabReader").classList.remove("active");
+      $("#tabGallery").classList.add("active");
+      showScreen("screenGallery");        // keep existing grid + scroll position
+      if(!gridEl.children.length) renderGallery(true);
+      updateCount();
+    } else {
+      setTab("reader");                    // back to the post list
+    }
+  });
 
   // ---------- filtering ----------
   function norm(s){return (s||"").toLowerCase()}
@@ -79,13 +92,14 @@
         '<div class="dt"></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
       d.querySelector(".t").textContent=p.title;
       d.querySelector(".dt").textContent=p.date+(p.images.length?(" · "+p.images.length+" img"):"");
-      d.addEventListener("click",function(){openPost(p)});
+      d.addEventListener("click",function(){openPost(p,"list")});
       frag.appendChild(d);
     });
     listEl.innerHTML=""; listEl.appendChild(frag);
   }
 
-  function openPost(p){
+  function openPost(p,origin){
+    if(origin) backTarget=origin;
     current=p;
     appTitle.innerHTML='Reading <small>#'+String(p.id).padStart(4,"0")+' · '+p.date+'</small>';
     viewerEl.innerHTML='<div class="empty">Loading…</div>';
@@ -163,7 +177,8 @@
     lbCap.innerHTML='<a class="open" href="#">'+it.post.title+'</a> · #'+
       String(it.post.id).padStart(4,"0")+' · '+it.post.date;
     lbCap.querySelector(".open").addEventListener("click",function(e){
-      e.preventDefault();closeLb();setTab("reader");openPost(it.post);
+      e.preventDefault();closeLb();
+      openPost(it.post, tab==="gallery" ? "gallery" : "list");
     });
     lb.classList.add("open");
   }
