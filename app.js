@@ -8,11 +8,14 @@
   var $=function(s){return document.querySelector(s)};
   var listEl=$("#list"), viewerEl=$("#viewer"), gridEl=$("#grid"),
       searchEl=$("#search"), yearEl=$("#year"), sortEl=$("#sort"),
-      countEl=$("#count"), sentinelEl=$("#sentinel"),
-      backBtn=$("#backBtn"), appTitle=$("#appTitle"), searchwrap=$("#searchwrap"),
+      sentinelEl=$("#sentinel"),
+      backBtn=$("#backBtn"), appTitle=$("#appTitle"),
+      searchBtn=$("#searchBtn"), filterBtn=$("#filterBtn"), searchbar=$("#searchbar"),
+      filterSheet=$("#filterSheet"), sheetBackdrop=$("#sheetBackdrop"),
       galleryScreen=$("#screenGallery");
 
   // ---------- load ----------
+  listSkeleton();                 // show loaders until data arrives
   fetch("data/posts.json").then(function(r){return r.json()}).then(function(data){
     POSTS=data; TOTAL=POSTS.length.toLocaleString();
     POSTS.forEach(function(p){BYID[p.id]=p});
@@ -64,12 +67,13 @@
     });
     var post=(id==="screenPost");
     backBtn.hidden=!post;
-    searchwrap.style.display=post?"none":"block";
+    searchBtn.hidden=filterBtn.hidden=post;     // hide search/filter while reading a post
+    if(post) closeSearch();
   }
   function setHomeTitle(){
     if(tab==="reader"){
       appTitle.innerHTML = FILTERED.length===POSTS.length
-        ? 'ventdj <small>offline archive · '+TOTAL+' posts</small>'
+        ? 'ventdj <small>'+TOTAL+' posts</small>'
         : 'ventdj <small>'+FILTERED.length.toLocaleString()+' of '+TOTAL+' posts</small>';
     } else {
       appTitle.innerHTML='ventdj <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
@@ -116,12 +120,33 @@
     setHomeTitle(); updateCount();
   }
   function updateCount(){
-    countEl.textContent = tab==="reader"
-      ? FILTERED.length.toLocaleString()+" posts"
-      : galleryFiltered().length.toLocaleString()+" images";
+    filterBtn.classList.toggle("dot", !!(yearEl.value || sortEl.value!=="old"));
+    searchBtn.classList.toggle("dot", !!searchEl.value.trim());
   }
 
+  // ---------- search & filter UI ----------
+  function openSearch(){searchbar.classList.add("open");searchEl.focus()}
+  function closeSearch(){searchbar.classList.remove("open")}
+  searchBtn.addEventListener("click",openSearch);
+  $("#searchClose").addEventListener("click",function(){
+    if(searchEl.value){searchEl.value="";apply()}
+    closeSearch();
+  });
+  searchEl.addEventListener("keydown",function(e){if(e.key==="Escape"){searchEl.value="";apply();closeSearch()}});
+
+  function openSheet(){sheetBackdrop.classList.add("open");filterSheet.classList.add("open");filterSheet.setAttribute("aria-hidden","false")}
+  function closeSheet(){sheetBackdrop.classList.remove("open");filterSheet.classList.remove("open");filterSheet.setAttribute("aria-hidden","true")}
+  filterBtn.addEventListener("click",openSheet);
+  sheetBackdrop.addEventListener("click",closeSheet);
+  $("#filterDone").addEventListener("click",closeSheet);
+  $("#filterReset").addEventListener("click",function(){yearEl.value="";sortEl.value="old";apply()});
+
   // ---------- list ----------
+  function listSkeleton(){
+    var h="";
+    for(var i=0;i<12;i++) h+='<div class="skel-row"><div class="b"><div class="skel l1"></div><div class="skel l2"></div></div></div>';
+    listEl.innerHTML=h;
+  }
   function renderList(){
     if(!FILTERED.length){
       listEl.innerHTML='<div class="empty">No posts match your search.</div>'; return;
@@ -198,9 +223,16 @@
     for(var i=galleryShown;i<end;i++){
       (function(it){
         var fig=document.createElement("figure");
+        fig.className="loading";
         var im=document.createElement("img");
-        im.loading="lazy";im.src="images/"+it.t;im.alt=it.post.title;
-        im.addEventListener("error",function(){im.src="images/"+it.f});  // fall back to full size
+        var triedFull=false;
+        im.loading="lazy";im.alt=it.post.title;
+        im.addEventListener("load",function(){fig.classList.remove("loading");im.classList.add("loaded")});
+        im.addEventListener("error",function(){
+          if(!triedFull){triedFull=true;im.src="images/"+it.f}    // fall back to full size
+          else{fig.classList.remove("loading")}
+        });
+        im.src="images/"+it.t;
         fig.appendChild(im);
         fig.addEventListener("click",function(){navigate("#/photo/"+encodeURIComponent(it.f))});
         frag.appendChild(fig);

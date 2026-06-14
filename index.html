@@ -13,25 +13,17 @@
 <div class="app">
 
   <header class="appbar">
-    <button id="backBtn" class="iconbtn" hidden><i class="fa-solid fa-chevron-left"></i></button>
-    <div class="title" id="appTitle">ventdj <small>offline archive · 2,405 posts</small></div>
-  </header>
+    <button id="backBtn" class="iconbtn" hidden aria-label="Back"><i class="fa-solid fa-chevron-left"></i></button>
+    <div class="title" id="appTitle">ventdj</div>
+    <button id="searchBtn" class="iconbtn" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+    <button id="filterBtn" class="iconbtn" aria-label="Filter &amp; sort"><i class="fa-solid fa-sliders"></i></button>
 
-  <div class="searchwrap" id="searchwrap">
-    <label class="search">
+    <div class="searchbar" id="searchbar">
       <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
       <input id="search" type="search" placeholder="Search titles &amp; text…" autocomplete="off">
-    </label>
-    <div class="filters">
-      <select id="year"><option value="">All years</option></select>
-      <select id="sort">
-        <option value="old">Oldest first</option>
-        <option value="new">Newest first</option>
-        <option value="az">Title A→Z</option>
-      </select>
+      <button id="searchClose" class="iconbtn" aria-label="Close search"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div id="count" class="count"></div>
-  </div>
+  </header>
 
   <main class="screens">
     <section id="screenList" class="screen active">
@@ -52,6 +44,27 @@
   </nav>
 
 </div>
+
+<!-- Filter & sort sheet -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<aside class="sheet" id="filterSheet" aria-hidden="true">
+  <div class="sheet-handle"></div>
+  <h3>Filter &amp; sort</h3>
+  <label class="field">Year
+    <select id="year"><option value="">All years</option></select>
+  </label>
+  <label class="field">Sort
+    <select id="sort">
+      <option value="old">Oldest first</option>
+      <option value="new">Newest first</option>
+      <option value="az">Title A→Z</option>
+    </select>
+  </label>
+  <div class="sheet-actions">
+    <button id="filterReset" class="btn">Reset</button>
+    <button id="filterDone" class="btn primary">Done</button>
+  </div>
+</aside>
 
 <!-- Lightbox -->
 <div id="lightbox" class="lightbox">
