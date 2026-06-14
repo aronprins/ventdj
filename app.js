@@ -20,19 +20,33 @@
       .forEach(function(y){var o=document.createElement("option");o.value=y;o.textContent=y;yearEl.appendChild(o)});
     POSTS.forEach(function(p){p.images.forEach(function(im){galleryItems.push({f:im.f,t:im.t,post:p})})});
     apply();
-    history.replaceState({view:"list"},"");
-    render({view:"list"});
+    render(parseHash());          // honor a deep-linked hash on first load
   }).catch(function(){
     viewerEl.innerHTML='<div class="empty">Could not load <code>data/posts.json</code>.<br>'+
       'Serve the folder over HTTP (e.g. <code>python3 -m http.server</code>).</div>';
     showScreen("screenPost");
   });
 
-  // ---------- history-driven navigation ----------
-  function viewName(){return (history.state&&history.state.view)||"list"}
-  function push(state){history.pushState(state,"");render(state)}
-  function replace(state){history.replaceState(state,"");render(state)}
-  window.addEventListener("popstate",function(e){render(e.state)});
+  // ---------- hash routing (GitHub Pages friendly) ----------
+  // #/                       -> list
+  // #/gallery                -> gallery
+  // #/post/<id>              -> post
+  // #/photo/<file>           -> lightbox (gallery context)
+  // #/post/<id>/photo/<file> -> lightbox (in-post context)
+  function parseHash(){
+    var parts=location.hash.replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
+    if(parts[0]==="gallery") return {view:"gallery"};
+    if(parts[0]==="post"){
+      var id=parseInt(parts[1],10);
+      if(parts[2]==="photo") return {view:"lightbox",ctx:"post",id:id,f:parts[3]};
+      return {view:"post",id:id};
+    }
+    if(parts[0]==="photo") return {view:"lightbox",ctx:"gallery",f:parts[1]};
+    return {view:"list"};
+  }
+  function navigate(h){ if(location.hash===h) render(parseHash()); else location.hash=h; }
+  function replaceNav(h){ history.replaceState(null,"",h); render(parseHash()); }
+  window.addEventListener("hashchange",function(){render(parseHash())});
 
   function render(state){
     state=state||{view:"list"};
@@ -78,8 +92,8 @@
   }
 
   // bottom tabs
-  $("#tabReader").addEventListener("click",function(){if(viewName()!=="list")push({view:"list"});else showList()});
-  $("#tabGallery").addEventListener("click",function(){if(viewName()!=="gallery")push({view:"gallery"});else showGallery()});
+  $("#tabReader").addEventListener("click",function(){navigate("#/")});
+  $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
   // topbar back = browser back
   backBtn.addEventListener("click",function(){history.back()});
 
@@ -96,7 +110,7 @@
     else if(sort==="new") FILTERED.sort(function(a,b){return b.id-a.id});
     else if(sort==="az") FILTERED.sort(function(a,b){return a.title.localeCompare(b.title)});
     listStale=galleryStale=true; renderedPostId=null;
-    var v=viewName();
+    var v=parseHash().view;
     if(v==="gallery"){renderGallery(true);galleryStale=false}
     else if(v!=="post"){renderList();listStale=false}
     setHomeTitle(); updateCount();
@@ -120,14 +134,14 @@
         '<div class="dt"></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
       d.querySelector(".t").textContent=p.title;
       d.querySelector(".dt").textContent=p.date+(p.images.length?(" · "+p.images.length+" img"):"");
-      d.addEventListener("click",function(){push({view:"post",id:p.id})});
+      d.addEventListener("click",function(){navigate("#/post/"+p.id)});
       frag.appendChild(d);
     });
     listEl.innerHTML=""; listEl.appendChild(frag);
   }
 
   function showPost(id){
-    var p=BYID[id]; if(!p){showList();return}
+    var p=BYID[id]; if(!p){navigate("#/");return}
     appTitle.innerHTML='Reading <small>#'+String(p.id).padStart(4,"0")+' · '+p.date+'</small>';
     showScreen("screenPost");
     if(renderedPostId===id) return;            // already rendered (e.g. closing lightbox)
@@ -151,7 +165,7 @@
       viewerEl.querySelectorAll(".content img").forEach(function(im){
         im.addEventListener("click",function(e){
           e.preventDefault();
-          push({view:"lightbox",ctx:"post",id:id,f:im.getAttribute("src").replace(/^images\//,"")});
+          navigate("#/post/"+id+"/photo/"+encodeURIComponent(im.getAttribute("src").replace(/^images\//,"")));
         });
       });
       viewerEl.querySelectorAll(".content a").forEach(function(a){
@@ -160,9 +174,9 @@
       viewerEl.scrollTop=0;
     });
   }
-  // Prev/Next replaces the current post in history so "back" still leaves reading.
+  // Prev/Next replaces the current history entry so "back" still leaves reading.
   function mkBtn(label,id){var b=document.createElement("button");b.className="btn";
-    b.innerHTML=label;b.addEventListener("click",function(){replace({view:"post",id:id})});return b}
+    b.innerHTML=label;b.addEventListener("click",function(){replaceNav("#/post/"+id)});return b}
   function spacer(){var s=document.createElement("span");s.className="btn";s.style.visibility="hidden";return s}
 
   // ---------- gallery ----------
@@ -182,15 +196,15 @@
     var end=Math.min(galleryShown+GAL_PAGE,items.length);
     var frag=document.createDocumentFragment();
     for(var i=galleryShown;i<end;i++){
-      (function(it,i){
+      (function(it){
         var fig=document.createElement("figure");
         var im=document.createElement("img");
         im.loading="lazy";im.src="images/"+it.t;im.alt=it.post.title;
         im.addEventListener("error",function(){im.src="images/"+it.f});  // fall back to full size
         fig.appendChild(im);
-        fig.addEventListener("click",function(){push({view:"lightbox",ctx:"gallery",index:i})});
+        fig.addEventListener("click",function(){navigate("#/photo/"+encodeURIComponent(it.f))});
         frag.appendChild(fig);
-      })(items[i],i);
+      })(items[i]);
     }
     gridEl.appendChild(frag);
     galleryShown=end;
@@ -204,27 +218,29 @@
   });
 
   // ---------- lightbox ----------
-  var lb=$("#lightbox"), lbImg=$("#lbImg"), lbCap=$("#lbCap"), lbList=null, lbIndex=0, lbCtx=null;
+  var lb=$("#lightbox"), lbImg=$("#lbImg"), lbCap=$("#lbCap"), lbList=null, lbIndex=0;
   function showLightboxState(state){
     if(state.ctx==="post"){
       showPost(state.id);
       var p=BYID[state.id];
-      lbList=[{f:state.f,post:p}]; lbIndex=0; lbCtx="post";
+      if(!p){history.back();return}
+      lbList=[{f:state.f,post:p}]; lbIndex=0;
     } else {
       showGallery();
-      lbList=galleryFiltered(); lbCtx="gallery";
-      lbIndex=Math.min(state.index||0, Math.max(0,lbList.length-1));
+      lbList=galleryFiltered();
+      lbIndex=Math.max(0, indexOfFull(lbList,state.f));
     }
     if(!lbList.length){history.back();return}
     paintLb();
   }
+  function indexOfFull(list,f){for(var i=0;i<list.length;i++){if(list[i].f===f)return i}return -1}
   function paintLb(){
     var it=lbList[lbIndex];
     lbImg.src="images/"+it.f;
     lbCap.innerHTML='<a class="open" href="#">'+escapeHtml(it.post.title)+'</a> · #'+
       String(it.post.id).padStart(4,"0")+' · '+it.post.date;
     lbCap.querySelector(".open").addEventListener("click",function(e){
-      e.preventDefault(); push({view:"post",id:it.post.id});
+      e.preventDefault(); navigate("#/post/"+it.post.id);
     });
     $("#lbPrev").style.visibility=$("#lbNext").style.visibility = lbList.length>1?"visible":"hidden";
     lb.classList.add("open");
@@ -232,8 +248,8 @@
   function hideLb(){lb.classList.remove("open");lbImg.src="";lbList=null}
   function step(d){
     if(!lbList||lbList.length<2)return;
-    lbIndex=(lbIndex+d+lbList.length)%lbList.length;
-    replace({view:"lightbox",ctx:"gallery",index:lbIndex}); // ctx=gallery only when multi
+    var i=(lbIndex+d+lbList.length)%lbList.length;
+    replaceNav("#/photo/"+encodeURIComponent(lbList[i].f));   // gallery context only (multi)
   }
   function escapeHtml(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 
