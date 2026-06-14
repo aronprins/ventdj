@@ -1,9 +1,9 @@
 (function(){
   "use strict";
-  var POSTS=[], FILTERED=[], current=null;
-  var tab="reader";               // active bottom tab: "reader" | "gallery"
-  var backTarget="list";          // where the post-view back button returns to
+  var POSTS=[], BYID={}, FILTERED=[], TOTAL="0";
+  var tab="reader";
   var galleryItems=[], galleryShown=0, GAL_PAGE=120;
+  var listStale=true, galleryStale=true, renderedPostId=null;
 
   var $=function(s){return document.querySelector(s)};
   var listEl=$("#list"), viewerEl=$("#viewer"), gridEl=$("#grid"),
@@ -12,54 +12,76 @@
       backBtn=$("#backBtn"), appTitle=$("#appTitle"), searchwrap=$("#searchwrap"),
       galleryScreen=$("#screenGallery");
 
-  var DEF_TITLE='ventdj <small>offline archive · 2,405 posts</small>';
-
   // ---------- load ----------
   fetch("data/posts.json").then(function(r){return r.json()}).then(function(data){
-    POSTS=data;
+    POSTS=data; TOTAL=POSTS.length.toLocaleString();
+    POSTS.forEach(function(p){BYID[p.id]=p});
     Array.from(new Set(POSTS.map(function(p){return p.year}).filter(Boolean))).sort()
       .forEach(function(y){var o=document.createElement("option");o.value=y;o.textContent=y;yearEl.appendChild(o)});
     POSTS.forEach(function(p){p.images.forEach(function(im){galleryItems.push({f:im.f,t:im.t,post:p})})});
     apply();
+    history.replaceState({view:"list"},"");
+    render({view:"list"});
   }).catch(function(){
     viewerEl.innerHTML='<div class="empty">Could not load <code>data/posts.json</code>.<br>'+
       'Serve the folder over HTTP (e.g. <code>python3 -m http.server</code>).</div>';
     showScreen("screenPost");
   });
 
-  // ---------- screen management ----------
+  // ---------- history-driven navigation ----------
+  function viewName(){return (history.state&&history.state.view)||"list"}
+  function push(state){history.pushState(state,"");render(state)}
+  function replace(state){history.replaceState(state,"");render(state)}
+  window.addEventListener("popstate",function(e){render(e.state)});
+
+  function render(state){
+    state=state||{view:"list"};
+    if(state.view!=="lightbox") hideLb();
+    if(state.view==="gallery")       showGallery();
+    else if(state.view==="post")     showPost(state.id);
+    else if(state.view==="lightbox") showLightboxState(state);
+    else                             showList();
+  }
+
+  // ---------- screens ----------
   function showScreen(id){
     ["screenList","screenPost","screenGallery"].forEach(function(s){
       document.getElementById(s).classList.toggle("active", s===id);
     });
-    var post = (id==="screenPost");
-    backBtn.hidden = !post;
-    searchwrap.style.display = post ? "none" : "block";
+    var post=(id==="screenPost");
+    backBtn.hidden=!post;
+    searchwrap.style.display=post?"none":"block";
   }
-  function setTab(t){
+  function setHomeTitle(){
+    if(tab==="reader"){
+      appTitle.innerHTML = FILTERED.length===POSTS.length
+        ? 'ventdj <small>offline archive · '+TOTAL+' posts</small>'
+        : 'ventdj <small>'+FILTERED.length.toLocaleString()+' of '+TOTAL+' posts</small>';
+    } else {
+      appTitle.innerHTML='ventdj <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
+    }
+  }
+  function setTabUI(t){
     tab=t;
     $("#tabReader").classList.toggle("active",t==="reader");
     $("#tabGallery").classList.toggle("active",t==="gallery");
-    appTitle.innerHTML=DEF_TITLE;
-    if(t==="reader"){ showScreen("screenList"); }
-    else { showScreen("screenGallery"); renderGallery(true); }
-    updateCount();
   }
-  $("#tabReader").addEventListener("click",function(){setTab("reader")});
-  $("#tabGallery").addEventListener("click",function(){setTab("gallery")});
-  backBtn.addEventListener("click",function(){
-    appTitle.innerHTML=DEF_TITLE;
-    if(backTarget==="gallery"){
-      tab="gallery";
-      $("#tabReader").classList.remove("active");
-      $("#tabGallery").classList.add("active");
-      showScreen("screenGallery");        // keep existing grid + scroll position
-      if(!gridEl.children.length) renderGallery(true);
-      updateCount();
-    } else {
-      setTab("reader");                    // back to the post list
-    }
-  });
+  function showList(){
+    setTabUI("reader");
+    if(listStale){renderList();listStale=false}
+    showScreen("screenList"); setHomeTitle(); updateCount();
+  }
+  function showGallery(){
+    setTabUI("gallery");
+    if(galleryStale){renderGallery(true);galleryStale=false}
+    showScreen("screenGallery"); setHomeTitle(); updateCount();
+  }
+
+  // bottom tabs
+  $("#tabReader").addEventListener("click",function(){if(viewName()!=="list")push({view:"list"});else showList()});
+  $("#tabGallery").addEventListener("click",function(){if(viewName()!=="gallery")push({view:"gallery"});else showGallery()});
+  // topbar back = browser back
+  backBtn.addEventListener("click",function(){history.back()});
 
   // ---------- filtering ----------
   function norm(s){return (s||"").toLowerCase()}
@@ -73,8 +95,11 @@
     if(sort==="old") FILTERED.sort(function(a,b){return a.id-b.id});
     else if(sort==="new") FILTERED.sort(function(a,b){return b.id-a.id});
     else if(sort==="az") FILTERED.sort(function(a,b){return a.title.localeCompare(b.title)});
-    if(tab==="reader") renderList(); else renderGallery(true);
-    updateCount();
+    listStale=galleryStale=true; renderedPostId=null;
+    var v=viewName();
+    if(v==="gallery"){renderGallery(true);galleryStale=false}
+    else if(v!=="post"){renderList();listStale=false}
+    setHomeTitle(); updateCount();
   }
   function updateCount(){
     countEl.textContent = tab==="reader"
@@ -84,6 +109,9 @@
 
   // ---------- list ----------
   function renderList(){
+    if(!FILTERED.length){
+      listEl.innerHTML='<div class="empty">No posts match your search.</div>'; return;
+    }
     var frag=document.createDocumentFragment();
     FILTERED.forEach(function(p){
       var d=document.createElement("div");
@@ -92,20 +120,22 @@
         '<div class="dt"></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
       d.querySelector(".t").textContent=p.title;
       d.querySelector(".dt").textContent=p.date+(p.images.length?(" · "+p.images.length+" img"):"");
-      d.addEventListener("click",function(){openPost(p,"list")});
+      d.addEventListener("click",function(){push({view:"post",id:p.id})});
       frag.appendChild(d);
     });
     listEl.innerHTML=""; listEl.appendChild(frag);
   }
 
-  function openPost(p,origin){
-    if(origin) backTarget=origin;
-    current=p;
+  function showPost(id){
+    var p=BYID[id]; if(!p){showList();return}
     appTitle.innerHTML='Reading <small>#'+String(p.id).padStart(4,"0")+' · '+p.date+'</small>';
-    viewerEl.innerHTML='<div class="empty">Loading…</div>';
     showScreen("screenPost");
+    if(renderedPostId===id) return;            // already rendered (e.g. closing lightbox)
+    renderedPostId=id;
+    viewerEl.innerHTML='<div class="empty">Loading…</div>';
     viewerEl.scrollTop=0;
     fetch("posts/"+p.slug).then(function(r){return r.text()}).then(function(htmlText){
+      if(renderedPostId!==id) return;          // navigated away while loading
       var doc=new DOMParser().parseFromString(htmlText,"text/html");
       var content=doc.querySelector(".content");
       var body=(content?content.innerHTML:"<p>(no content)</p>").replace(/(["'])\.\.\//g,"$1");
@@ -116,10 +146,13 @@
       viewerEl.querySelector("h1").textContent=p.title;
       viewerEl.querySelector(".date").textContent="#"+String(p.id).padStart(4,"0")+" · "+p.date;
       var nb=viewerEl.querySelector(".navbtns");
-      nb.appendChild(prev?mkBtn('<i class="fa-solid fa-chevron-left"></i> Prev',prev):spacer());
-      nb.appendChild(next?mkBtn('Next <i class="fa-solid fa-chevron-right"></i>',next):spacer());
+      nb.appendChild(prev?mkBtn('<i class="fa-solid fa-chevron-left"></i> Prev',prev.id):spacer());
+      nb.appendChild(next?mkBtn('Next <i class="fa-solid fa-chevron-right"></i>',next.id):spacer());
       viewerEl.querySelectorAll(".content img").forEach(function(im){
-        im.addEventListener("click",function(e){e.preventDefault();openLightboxSrc(im.getAttribute("src"),p)});
+        im.addEventListener("click",function(e){
+          e.preventDefault();
+          push({view:"lightbox",ctx:"post",id:id,f:im.getAttribute("src").replace(/^images\//,"")});
+        });
       });
       viewerEl.querySelectorAll(".content a").forEach(function(a){
         if(a.querySelector("img")) a.addEventListener("click",function(e){e.preventDefault()});
@@ -127,8 +160,9 @@
       viewerEl.scrollTop=0;
     });
   }
-  function mkBtn(label,p){var b=document.createElement("button");b.className="btn";
-    b.innerHTML=label;b.addEventListener("click",function(){openPost(p)});return b}
+  // Prev/Next replaces the current post in history so "back" still leaves reading.
+  function mkBtn(label,id){var b=document.createElement("button");b.className="btn";
+    b.innerHTML=label;b.addEventListener("click",function(){replace({view:"post",id:id})});return b}
   function spacer(){var s=document.createElement("span");s.className="btn";s.style.visibility="hidden";return s}
 
   // ---------- gallery ----------
@@ -144,6 +178,7 @@
   function renderGallery(reset){
     var items=galleryFiltered();
     if(reset){gridEl.innerHTML="";galleryShown=0;galleryScreen.scrollTop=0}
+    if(!items.length){gridEl.innerHTML='<div class="empty">No images match your search.</div>';sentinelEl.textContent="";return}
     var end=Math.min(galleryShown+GAL_PAGE,items.length);
     var frag=document.createDocumentFragment();
     for(var i=galleryShown;i<end;i++){
@@ -151,8 +186,9 @@
         var fig=document.createElement("figure");
         var im=document.createElement("img");
         im.loading="lazy";im.src="images/"+it.t;im.alt=it.post.title;
+        im.addEventListener("error",function(){im.src="images/"+it.f});  // fall back to full size
         fig.appendChild(im);
-        fig.addEventListener("click",function(){openLightbox(items,i)});
+        fig.addEventListener("click",function(){push({view:"lightbox",ctx:"gallery",index:i})});
         frag.appendChild(fig);
       })(items[i],i);
     }
@@ -168,30 +204,58 @@
   });
 
   // ---------- lightbox ----------
-  var lb=$("#lightbox"), lbImg=$("#lbImg"), lbCap=$("#lbCap"), lbList=null, lbIndex=0;
-  function openLightbox(items,i){lbList=items;lbIndex=i;showLb()}
-  function openLightboxSrc(src,post){lbList=[{f:src.replace(/^images\//,""),post:post}];lbIndex=0;showLb()}
-  function showLb(){
+  var lb=$("#lightbox"), lbImg=$("#lbImg"), lbCap=$("#lbCap"), lbList=null, lbIndex=0, lbCtx=null;
+  function showLightboxState(state){
+    if(state.ctx==="post"){
+      showPost(state.id);
+      var p=BYID[state.id];
+      lbList=[{f:state.f,post:p}]; lbIndex=0; lbCtx="post";
+    } else {
+      showGallery();
+      lbList=galleryFiltered(); lbCtx="gallery";
+      lbIndex=Math.min(state.index||0, Math.max(0,lbList.length-1));
+    }
+    if(!lbList.length){history.back();return}
+    paintLb();
+  }
+  function paintLb(){
     var it=lbList[lbIndex];
-    lbImg.src = "images/"+it.f;
-    lbCap.innerHTML='<a class="open" href="#">'+it.post.title+'</a> · #'+
+    lbImg.src="images/"+it.f;
+    lbCap.innerHTML='<a class="open" href="#">'+escapeHtml(it.post.title)+'</a> · #'+
       String(it.post.id).padStart(4,"0")+' · '+it.post.date;
     lbCap.querySelector(".open").addEventListener("click",function(e){
-      e.preventDefault();closeLb();
-      openPost(it.post, tab==="gallery" ? "gallery" : "list");
+      e.preventDefault(); push({view:"post",id:it.post.id});
     });
+    $("#lbPrev").style.visibility=$("#lbNext").style.visibility = lbList.length>1?"visible":"hidden";
     lb.classList.add("open");
   }
-  function closeLb(){lb.classList.remove("open");lbImg.src=""}
-  function step(d){if(!lbList)return;lbIndex=(lbIndex+d+lbList.length)%lbList.length;showLb()}
-  $("#lbClose").addEventListener("click",closeLb);
+  function hideLb(){lb.classList.remove("open");lbImg.src="";lbList=null}
+  function step(d){
+    if(!lbList||lbList.length<2)return;
+    lbIndex=(lbIndex+d+lbList.length)%lbList.length;
+    replace({view:"lightbox",ctx:"gallery",index:lbIndex}); // ctx=gallery only when multi
+  }
+  function escapeHtml(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+  $("#lbClose").addEventListener("click",function(){history.back()});
   $("#lbPrev").addEventListener("click",function(e){e.stopPropagation();step(-1)});
   $("#lbNext").addEventListener("click",function(e){e.stopPropagation();step(1)});
-  lb.addEventListener("click",function(e){if(e.target===lb)closeLb()});
+  lb.addEventListener("click",function(e){if(e.target===lb)history.back()});
   document.addEventListener("keydown",function(e){
     if(!lb.classList.contains("open"))return;
-    if(e.key==="Escape")closeLb();else if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1);
+    if(e.key==="Escape")history.back();
+    else if(e.key==="ArrowLeft")step(-1);
+    else if(e.key==="ArrowRight")step(1);
   });
+
+  // swipe gestures in the lightbox
+  var tx=0,ty=0;
+  lb.addEventListener("touchstart",function(e){var t=e.changedTouches[0];tx=t.clientX;ty=t.clientY},{passive:true});
+  lb.addEventListener("touchend",function(e){
+    var t=e.changedTouches[0], dx=t.clientX-tx, dy=t.clientY-ty;
+    if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)) step(dx<0?1:-1);
+    else if(dy>80 && Math.abs(dy)>Math.abs(dx)) history.back();  // swipe down to close
+  },{passive:true});
 
   // ---------- inputs ----------
   var deb;
