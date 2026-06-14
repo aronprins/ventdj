@@ -1,0 +1,57 @@
+# ---- macOS ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ---- Windows ----
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---- Linux ----
+*~
+.directory
+.Trash-*
+
+# ---- Editors / IDEs ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.project
+.settings/
+
+# ---- Logs & temp ----
+*.log
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# ---- Dependencies / build (if tooling is added later) ----
+node_modules/
+dist/
+.cache/
+.parcel-cache/
+
+# ---- Claude Code ----
+.claude/
+
+# ---- Environment ----
+.env
+.env.local
+.env.*.local
