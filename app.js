@@ -14,9 +14,12 @@
       filterSheet=$("#filterSheet"), sheetBackdrop=$("#sheetBackdrop"),
       galleryScreen=$("#screenGallery");
 
+  // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
+  var VERSION="2";
+
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
-  fetch("data/posts.json").then(function(r){return r.json()}).then(function(data){
+  fetch("data/posts.json?v="+VERSION).then(function(r){return r.json()}).then(function(data){
     POSTS=data; TOTAL=POSTS.length.toLocaleString();
     POSTS.forEach(function(p){BYID[p.id]=p});
     Array.from(new Set(POSTS.map(function(p){return p.year}).filter(Boolean))).sort()
@@ -173,7 +176,7 @@
     renderedPostId=id;
     viewerEl.innerHTML='<div class="empty">Loading…</div>';
     viewerEl.scrollTop=0;
-    fetch("posts/"+p.slug).then(function(r){return r.text()}).then(function(htmlText){
+    fetch("posts/"+p.slug+"?v="+VERSION).then(function(r){return r.text()}).then(function(htmlText){
       if(renderedPostId!==id) return;          // navigated away while loading
       var doc=new DOMParser().parseFromString(htmlText,"text/html");
       var content=doc.querySelector(".content");
