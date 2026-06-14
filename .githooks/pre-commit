@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# pre-commit — keep the cache-busting version stamp fresh automatically.
+#
+# Runs build.sh (which derives the version from asset content) and re-stages
+# the two stamp targets so the new version is part of this commit. Because the
+# version is content-derived it is stable when nothing changed, so this never
+# creates a commit loop.
+#
+# Enable once per clone with:
+#
+#     git config core.hooksPath .githooks
+#
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+"$root/build.sh" >/dev/null
+git add "$root/app.js" "$root/index.html"

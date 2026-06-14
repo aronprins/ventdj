@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#ffffff">
 <title>ventdj — Archive</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="app.css?v=2">
+<link rel="stylesheet" href="app.css?v=c9806b0b">
 </head>
 <body>
 
@@ -66,15 +66,23 @@
   </div>
 </aside>
 
-<!-- Lightbox -->
-<div id="lightbox" class="lightbox">
-  <span id="lbClose" class="x"><i class="fa-solid fa-xmark"></i></span>
-  <span id="lbPrev" class="nav prev"><i class="fa-solid fa-chevron-left"></i></span>
-  <img id="lbImg" alt="">
-  <span id="lbNext" class="nav next"><i class="fa-solid fa-chevron-right"></i></span>
-  <div id="lbCap" class="cap"></div>
+<!-- Fullscreen image viewer -->
+<div id="lightbox" class="lightbox" aria-hidden="true">
+  <div class="lb-top">
+    <button id="lbClose" class="lb-btn" aria-label="Close viewer"><i class="fa-solid fa-xmark"></i></button>
+    <div id="lbCount" class="lb-count"></div>
+    <button id="lbOpen" class="lb-btn" aria-label="Open the post"><i class="fa-solid fa-up-right-from-square"></i></button>
+  </div>
+  <div id="lbTrack" class="lb-track">
+    <div class="lb-slide"><img alt=""></div>
+    <div class="lb-slide"><img alt=""></div>
+    <div class="lb-slide"><img alt=""></div>
+  </div>
+  <button id="lbPrev" class="lb-arrow prev" aria-label="Previous image"><i class="fa-solid fa-chevron-left"></i></button>
+  <button id="lbNext" class="lb-arrow next" aria-label="Next image"><i class="fa-solid fa-chevron-right"></i></button>
+  <div id="lbCap" class="lb-cap"></div>
 </div>
 
-<script src="app.js?v=2"></script>
+<script src="app.js?v=c9806b0b"></script>
 </body>
 </html>
