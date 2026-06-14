@@ -12,7 +12,7 @@
       backBtn=$("#backBtn"), appTitle=$("#appTitle"),
       searchBtn=$("#searchBtn"), filterBtn=$("#filterBtn"), searchbar=$("#searchbar"),
       filterSheet=$("#filterSheet"), sheetBackdrop=$("#sheetBackdrop"),
-      chipsEl=$("#chips"), galleryScreen=$("#screenGallery");
+      chipsEl=$("#chips"), aboutEl=$("#about"), galleryScreen=$("#screenGallery");
 
   // category filter (slug -> label); "" = All
   var cat="";
@@ -20,7 +20,7 @@
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="5503734b";
+  var VERSION="55364ff4";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -46,6 +46,7 @@
   // #/post/<id>/photo/<file> -> lightbox (in-post context)
   function parseHash(){
     var parts=location.hash.replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
+    if(parts[0]==="about") return {view:"about"};
     if(parts[0]==="gallery") return {view:"gallery"};
     if(parts[0]==="post"){
       var id=parseInt(parts[1],10);
@@ -63,6 +64,7 @@
     state=state||{view:"list"};
     if(state.view!=="lightbox") hideLb();
     if(state.view==="gallery")       showGallery();
+    else if(state.view==="about")    showAbout();
     else if(state.view==="post")     showPost(state.id);
     else if(state.view==="lightbox") showLightboxState(state);
     else                             showList();
@@ -70,28 +72,31 @@
 
   // ---------- screens ----------
   function showScreen(id){
-    ["screenList","screenPost","screenGallery"].forEach(function(s){
+    ["screenList","screenPost","screenGallery","screenAbout"].forEach(function(s){
       document.getElementById(s).classList.toggle("active", s===id);
     });
     var post=(id==="screenPost");
+    var bare=(post || id==="screenAbout");      // screens with no search / filter / chips
     backBtn.hidden=!post;
-    searchBtn.hidden=filterBtn.hidden=post;     // hide search/filter while reading a post
-    chipsEl.hidden=post;                        // hide category chips while reading a post
-    if(post) closeSearch();
+    searchBtn.hidden=filterBtn.hidden=bare;
+    chipsEl.hidden=bare;
+    if(bare) closeSearch();
   }
+  var BRAND="Mr. D's Ventriloquist Journal";
   function setHomeTitle(){
     if(tab==="reader"){
       appTitle.innerHTML = FILTERED.length===POSTS.length
-        ? 'ventdj <small>'+TOTAL+' posts</small>'
-        : 'ventdj <small>'+FILTERED.length.toLocaleString()+' of '+TOTAL+' posts</small>';
+        ? BRAND+' <small>'+TOTAL+' posts</small>'
+        : BRAND+' <small>'+FILTERED.length.toLocaleString()+' of '+TOTAL+' posts</small>';
     } else {
-      appTitle.innerHTML='ventdj <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
+      appTitle.innerHTML=BRAND+' <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
     }
   }
   function setTabUI(t){
     tab=t;
     $("#tabReader").classList.toggle("active",t==="reader");
     $("#tabGallery").classList.toggle("active",t==="gallery");
+    $("#tabAbout").classList.toggle("active",t==="about");
   }
   function showList(){
     setTabUI("reader");
@@ -103,10 +108,49 @@
     if(galleryStale){renderGallery(true);galleryStale=false}
     showScreen("screenGallery"); setHomeTitle(); updateCount();
   }
+  function showAbout(){
+    setTabUI("about");
+    loadAbout();
+    showScreen("screenAbout");
+    appTitle.innerHTML='About <small>'+BRAND+'</small>';
+  }
+
+  // ---------- about (rendered from README.md, up to "What's in here") ----------
+  var aboutLoaded=false;
+  function loadAbout(){
+    if(aboutLoaded) return;
+    aboutLoaded=true;
+    aboutEl.innerHTML='<div class="empty">Loading…</div>';
+    fetch("README.md?v="+VERSION).then(function(r){return r.text()}).then(function(md){
+      aboutEl.innerHTML=renderAbout(md)+
+        '<p class="about-orig"><a href="http://ventdj.blogspot.com/" target="_blank" rel="noopener">'+
+        'Visit the original blog <i class="fa-solid fa-arrow-up-right-from-square"></i></a></p>';
+    }).catch(function(){ aboutLoaded=false; aboutEl.innerHTML='<div class="empty">Could not load README.md</div>'; });
+  }
+  function aboutInline(s){
+    return s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+            .replace(/\*(.+?)\*/g,"<em>$1</em>")
+            // the original site opens in a new tab
+            .replace(/ventdj\.blogspot\.com/g,
+              '<a href="http://ventdj.blogspot.com/" target="_blank" rel="noopener">ventdj.blogspot.com</a>');
+  }
+  function renderAbout(md){
+    var cut=md.indexOf("### What's in here");
+    if(cut>=0) md=md.slice(0,cut);
+    md=md.trim().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    return md.split(/\n{2,}/).map(function(b){
+      b=b.trim(); if(!b) return "";
+      if(/^### /.test(b)) return "<h3>"+aboutInline(b.slice(4))+"</h3>";
+      if(/^## /.test(b))  return "<h2>"+aboutInline(b.slice(3))+"</h2>";
+      if(/^# /.test(b))   return "<h1>"+aboutInline(b.slice(2))+"</h1>";
+      return "<p>"+aboutInline(b.replace(/\n/g," "))+"</p>";
+    }).join("");
+  }
 
   // bottom tabs
   $("#tabReader").addEventListener("click",function(){navigate("#/")});
   $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
+  $("#tabAbout").addEventListener("click",function(){navigate("#/about")});
   // topbar back = browser back
   backBtn.addEventListener("click",function(){history.back()});
 
@@ -187,9 +231,15 @@
       var d=document.createElement("div");
       d.className="item";
       d.innerHTML='<div class="body"><div class="t"></div>'+
-        '<div class="dt"></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
+        '<div class="dt"><span class="d"></span></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
       d.querySelector(".t").textContent=p.title;
-      d.querySelector(".dt").textContent=p.date+(p.images.length?(" · "+p.images.length+" img"):"");
+      d.querySelector(".dt .d").textContent=p.date;
+      if(p.images.length){
+        var badge=document.createElement("span");
+        badge.className="imgs";
+        badge.innerHTML='<i class="fa-solid fa-image"></i>'+p.images.length;
+        d.querySelector(".dt").appendChild(badge);
+      }
       d.addEventListener("click",function(){navigate("#/post/"+p.id)});
       frag.appendChild(d);
     });

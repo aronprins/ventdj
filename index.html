@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
-<meta name="theme-color" content="#ffffff">
-<title>ventdj — Archive</title>
+<meta name="theme-color" content="#85251a">
+<title>Mr. D's Ventriloquist Journal</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="app.css?v=5503734b">
+<link rel="stylesheet" href="app.css?v=55364ff4">
 </head>
 <body>
 
@@ -14,7 +14,7 @@
 
   <header class="appbar">
     <button id="backBtn" class="iconbtn" hidden aria-label="Back"><i class="fa-solid fa-chevron-left"></i></button>
-    <div class="title" id="appTitle">ventdj</div>
+    <div class="title" id="appTitle">Mr. D's Ventriloquist Journal</div>
     <button id="searchBtn" class="iconbtn" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
     <button id="filterBtn" class="iconbtn" aria-label="Filter &amp; sort"><i class="fa-solid fa-sliders"></i></button>
 
@@ -38,11 +38,15 @@
       <div id="grid" class="grid"></div>
       <div id="sentinel" class="sentinel"></div>
     </section>
+    <section id="screenAbout" class="screen">
+      <div id="about" class="about"></div>
+    </section>
   </main>
 
   <nav class="tabbar">
     <button id="tabReader" class="tab active"><span class="ic"><i class="fa-solid fa-book-open"></i></span>Reader</button>
     <button id="tabGallery" class="tab"><span class="ic"><i class="fa-solid fa-images"></i></span>Gallery</button>
+    <button id="tabAbout" class="tab"><span class="ic"><i class="fa-solid fa-circle-info"></i></span>About</button>
   </nav>
 
 </div>
@@ -85,6 +89,6 @@
   <div id="lbCap" class="lb-cap"></div>
 </div>
 
-<script src="app.js?v=5503734b"></script>
+<script src="app.js?v=55364ff4"></script>
 </body>
 </html>
