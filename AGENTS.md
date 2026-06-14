@@ -14,7 +14,9 @@ no framework — just static HTML/CSS/JS that fetches a prebuilt JSON index.
 | `data/posts.json` | Prebuilt search/index data (titles, dates, text, image refs). |
 | `posts/NNNN-slug.html` | One static HTML file per archived post. |
 | `images/` | Post images (full size + thumbnails). |
-| `build_index.py` | Regenerates `data/posts.json` from `posts/*.html`. |
+| `build_index.py` | Regenerates `data/posts.json` from `posts/*.html` (+ folds in categories). |
+| `data/categories.json` | `{post_id: slug}` — LLM-assigned category per post. |
+| `data/overrides.json` | `{post_id: slug}` — optional manual category corrections (win over the above). |
 | `build.sh` | Stamps the cache-busting version (see below). |
 | `.githooks/pre-commit` | Runs `build.sh` and re-stages the stamped files. |
 
@@ -63,6 +65,22 @@ git add -A && git commit   # pre-commit hook restamps the version
 python3 -m http.server
 # open http://localhost:8000
 ```
+
+## Categories
+
+Each post has a `cat` slug, surfaced as the chip filter under the app bar (and
+applied to the gallery too). The eight buckets:
+
+`figures` (Figures), `forsale` (For Sale), `making` (Making), `lessons`
+(Lessons), `qa` (Q&A), `people` (People), `events` (Events), `other` (Other).
+
+Assignment: an LLM pass labeled every post into `data/categories.json`;
+`build_index.py` writes the result into each post's `cat`. To correct a post,
+add `"<id>": "<slug>"` to `data/overrides.json` (it wins over the LLM label) and
+rerun `python3 build_index.py`. Images inherit their post's category.
+
+The chip labels live in the `CATS` array in `app.js` — keep the slugs in sync
+with `categories.json`.
 
 ## Conventions
 

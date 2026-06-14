@@ -84,6 +84,18 @@ a{color:var(--accent);text-decoration:none}
 .skel-row .l1{height:13px;width:70%;margin-bottom:8px}
 .skel-row .l2{height:10px;width:35%}
 
+/* category chips */
+.chips{display:flex;gap:8px;padding:10px 12px;overflow-x:auto;flex:none;
+  border-bottom:1px solid var(--line);background:var(--app);
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chips[hidden]{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--soft);color:var(--text);
+  font-size:13px;font-weight:500;padding:7px 14px;border-radius:999px;cursor:pointer;
+  white-space:nowrap;transition:background .12s,color .12s,border-color .12s}
+.chip:active{filter:brightness(.96)}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
 /* screens */
 .screens{flex:1;position:relative;overflow:hidden}
 .screen{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;

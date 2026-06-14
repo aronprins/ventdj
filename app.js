@@ -12,10 +12,15 @@
       backBtn=$("#backBtn"), appTitle=$("#appTitle"),
       searchBtn=$("#searchBtn"), filterBtn=$("#filterBtn"), searchbar=$("#searchbar"),
       filterSheet=$("#filterSheet"), sheetBackdrop=$("#sheetBackdrop"),
-      galleryScreen=$("#screenGallery");
+      chipsEl=$("#chips"), galleryScreen=$("#screenGallery");
+
+  // category filter (slug -> label); "" = All
+  var cat="";
+  var CATS=[["","All"],["figures","Figures"],["forsale","For Sale"],["making","Making"],
+            ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="c9806b0b";
+  var VERSION="5503734b";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -71,6 +76,7 @@
     var post=(id==="screenPost");
     backBtn.hidden=!post;
     searchBtn.hidden=filterBtn.hidden=post;     // hide search/filter while reading a post
+    chipsEl.hidden=post;                        // hide category chips while reading a post
     if(post) closeSearch();
   }
   function setHomeTitle(){
@@ -109,6 +115,7 @@
   function apply(){
     var q=norm(searchEl.value.trim()), y=yearEl.value, sort=sortEl.value;
     FILTERED=POSTS.filter(function(p){
+      if(cat && p.cat!==cat) return false;
       if(y && p.year!==y) return false;
       if(!q) return true;
       return norm(p.title).indexOf(q)>=0 || norm(p.text).indexOf(q)>=0;
@@ -143,6 +150,27 @@
   sheetBackdrop.addEventListener("click",closeSheet);
   $("#filterDone").addEventListener("click",closeSheet);
   $("#filterReset").addEventListener("click",function(){yearEl.value="";sortEl.value="old";apply()});
+
+  // ---------- category chips ----------
+  function renderChips(){
+    var frag=document.createDocumentFragment();
+    CATS.forEach(function(c){
+      var b=document.createElement("button");
+      b.className="chip"+(c[0]===cat?" active":"");
+      b.textContent=c[1];
+      b.addEventListener("click",function(){
+        if(cat===c[0]) return;
+        cat=c[0];
+        Array.prototype.forEach.call(chipsEl.children,function(el,i){
+          el.classList.toggle("active",CATS[i][0]===cat);
+        });
+        apply();
+      });
+      frag.appendChild(b);
+    });
+    chipsEl.innerHTML=""; chipsEl.appendChild(frag);
+  }
+  renderChips();
 
   // ---------- list ----------
   function listSkeleton(){
@@ -210,8 +238,9 @@
   // ---------- gallery ----------
   function galleryFiltered(){
     var q=norm(searchEl.value.trim()), y=yearEl.value;
-    if(!q && !y) return galleryItems;
+    if(!q && !y && !cat) return galleryItems;
     return galleryItems.filter(function(it){
+      if(cat && it.post.cat!==cat) return false;
       if(y && it.post.year!==y) return false;
       if(!q) return true;
       return norm(it.post.title).indexOf(q)>=0 || norm(it.post.text).indexOf(q)>=0;

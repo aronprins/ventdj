@@ -4,6 +4,8 @@ import os, re, json, html
 
 POSTS_DIR = "posts"
 OUT = os.path.join("data", "posts.json")
+CATS = os.path.join("data", "categories.json")    # {post_id: slug} from the LLM pass
+OVERRIDES = os.path.join("data", "overrides.json") # {post_id: slug} manual corrections (wins)
 
 title_re   = re.compile(r'<h1>(.*?)</h1>', re.S)
 date_re    = re.compile(r'<p class="date">(.*?)</p>', re.S)
@@ -18,6 +20,14 @@ def text_of(frag):
     frag = tag_re.sub(' ', frag)
     frag = html.unescape(frag)
     return ws_re.sub(' ', frag).strip()
+
+def load_map(path):
+    if os.path.exists(path):
+        return {int(k): v for k, v in json.load(open(path, encoding="utf-8")).items()}
+    return {}
+
+cats = load_map(CATS)
+overrides = load_map(OVERRIDES)
 
 posts = []
 for fn in sorted(os.listdir(POSTS_DIR)):
@@ -60,6 +70,7 @@ for fn in sorted(os.listdir(POSTS_DIR)):
         "title": title,
         "date": date,
         "year": year,
+        "cat": overrides.get(pid) or cats.get(pid) or "other",
         "text": text_of(content)[:1200],
         "images": images,
     })
@@ -70,3 +81,7 @@ with open(OUT, "w", encoding="utf-8") as f:
 
 total_imgs = sum(len(p["images"]) for p in posts)
 print(f"wrote {OUT}: {len(posts)} posts, {total_imgs} image refs, {os.path.getsize(OUT)//1024} KB")
+if cats or overrides:
+    import collections
+    dist = collections.Counter(p["cat"] for p in posts)
+    print("categories:", dict(sorted(dist.items(), key=lambda x: -x[1])))

@@ -55,3 +55,7 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# ---- Build scratch ----
+# temp batch files from the categorization workflow
+data/_cat/
