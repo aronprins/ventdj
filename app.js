@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="9e40a2b8";
+  var VERSION="efdd7034";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -141,25 +141,28 @@
       document.getElementById(s).classList.toggle("active", s===id);
     });
     var post=(id==="screenPost");
+    var reader=(id==="screenList" || id==="screenPost");
     // screens with no search / filter / chips
     var bare=(post || id==="screenAbout" || id==="screenDiscover");
     // Derived readers (faq/how-to/people) live under Discover, so their list and
     // post screens carry a back button up to the Discover hub.
-    var derived=((id==="screenList"||id==="screenPost") && mode!=="archive");
+    var derived=(reader && mode!=="archive");
     // In split view the list never leaves, so the post pane keeps the list's
     // chrome (search / filter / chips). Archive needs no back button there.
-    if(isSplit() && (id==="screenList" || id==="screenPost")){
+    if(isSplit() && reader){
       backBtn.hidden=!derived;
       searchBtn.hidden=filterBtn.hidden=false;
       chipsEl.hidden=false;
+      if(activeTerms) searchbar.classList.add("open");   // keep the active query bar visible
       return;
     }
     backBtn.hidden=!(post || derived);
-    // search shows on lists/gallery/discover, and on a post while a search is active (to clear it)
     searchBtn.hidden=(id==="screenAbout") || (post && !activeTerms);
     filterBtn.hidden=bare;                            // year/sort only on a list or gallery
     chipsEl.hidden=bare;
-    if(bare) closeSearch();
+    // an active search shows its bar (with the query + clear) on the reader/post
+    if(activeTerms && reader) searchbar.classList.add("open");
+    else if(bare) closeSearch();
   }
   var BRAND="Mr. D's Ventriloquist Journal";
   // Per-mode masthead: lead label + noun for the count.
