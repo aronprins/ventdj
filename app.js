@@ -25,7 +25,7 @@
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="077097dc";
+  var VERSION="266db314";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -189,7 +189,9 @@
     listStale=galleryStale=true; renderedPostId=null;
     var v=parseHash().view;
     if(v==="gallery"){renderGallery(true);galleryStale=false}
-    else if(v!=="post"){renderList();listStale=false}
+    // re-render the list live unless it's off-screen (phone reading a post).
+    // In split view the list rail is always visible, so refresh it too.
+    else if(v!=="post" || isSplit()){renderList();listStale=false}
     setHomeTitle(); updateCount();
   }
   function updateCount(){
