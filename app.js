@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="dbe850c9";
+  var VERSION="387e15fc";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -171,6 +171,10 @@
       return;
     }
     var h=MODEHEAD[mode], total=modeDef().base().length, n=FILTERED.length;
+    if(activeTerms){
+      appTitle.innerHTML = h[0]+' <small>'+n.toLocaleString()+' result'+(n!==1?"s":"")+'</small>';
+      return;
+    }
     appTitle.innerHTML = (n===total)
       ? h[0]+' <small>'+total.toLocaleString()+' '+h[1]+'</small>'
       : h[0]+' <small>'+n.toLocaleString()+' of '+total.toLocaleString()+' '+h[1]+'</small>';
@@ -390,20 +394,85 @@
     history.back();
   });
 
-  // ---------- filtering ----------
+  // ---------- search ----------
+  // A query is split into terms (AND); results are ranked (title beats body,
+  // exact phrase and title-prefix get bonuses), with highlighted snippets.
+  var activeTerms=null;                 // current query terms, or null when not searching
   function norm(s){return (s||"").toLowerCase()}
-  function apply(){
-    var q=norm(searchEl.value.trim()), y=yearEl.value, sort=sortEl.value;
-    var def=modeDef(), c=curCat();
-    FILTERED=def.base().filter(function(p){
-      if(c && !def.match(p,c)) return false;
-      if(y && p.year!==y) return false;
-      if(!q) return true;
-      return norm(p.title).indexOf(q)>=0 || norm(p.text).indexOf(q)>=0;
+  function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
+  function searchTerms(q){
+    var seen={}, out=[];
+    q.toLowerCase().split(/\s+/).forEach(function(t){
+      t=t.replace(/^[^\w]+|[^\w]+$/g,"");
+      if(t.length>=2 && !seen[t]){ seen[t]=1; out.push(t); }
     });
-    if(sort==="old") FILTERED.sort(function(a,b){return a.id-b.id});
-    else if(sort==="new") FILTERED.sort(function(a,b){return b.id-a.id});
-    else if(sort==="az") FILTERED.sort(function(a,b){return a.title.localeCompare(b.title)});
+    return out.length?out:null;
+  }
+  function scorePost(p,terms){
+    var title=norm(p.title), text=norm(p.text), score=0;
+    for(var i=0;i<terms.length;i++){
+      var t=terms[i], it=title.indexOf(t)>=0, ix=text.indexOf(t)>=0;
+      if(!it && !ix) return 0;          // every term must appear somewhere
+      if(it) score+=10;
+      if(ix) score+=2;
+    }
+    if(terms.length>1){
+      var phrase=terms.join(" ");
+      if(title.indexOf(phrase)>=0) score+=25; else if(text.indexOf(phrase)>=0) score+=8;
+    }
+    if(title.indexOf(terms[0])===0) score+=6;
+    return score;
+  }
+  function termsRe(terms){return new RegExp("("+terms.map(escRe).join("|")+")","gi")}
+  function highlight(s,terms){
+    return escapeHtml(s).replace(termsRe(terms),"<mark>$1</mark>");
+  }
+  function snippet(text,terms){
+    var low=norm(text), pos=-1;
+    for(var i=0;i<terms.length;i++){var p=low.indexOf(terms[i]); if(p>=0 && (pos<0||p<pos)) pos=p;}
+    if(pos<0) return highlight(text.slice(0,150),terms)+(text.length>150?"…":"");
+    var start=Math.max(0,pos-55), end=Math.min(text.length,pos+110);
+    return (start>0?"…":"")+highlight(text.slice(start,end),terms)+(end<text.length?"…":"");
+  }
+  // Wrap query terms in <mark> inside an already-rendered element (the post body).
+  function highlightInEl(root,terms){
+    if(!root||!terms) return;
+    var re=termsRe(terms), nodes=[], w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);
+    while(w.nextNode()) nodes.push(w.currentNode);
+    nodes.forEach(function(node){
+      re.lastIndex=0;
+      if(!re.test(node.nodeValue)) return;
+      var span=document.createElement("span");
+      span.innerHTML=escapeHtml(node.nodeValue).replace(termsRe(terms),"<mark>$1</mark>");
+      node.parentNode.replaceChild(span,node);
+    });
+  }
+
+  // ---------- filtering ----------
+  function apply(){
+    var qraw=searchEl.value.trim(), y=yearEl.value, sort=sortEl.value;
+    var def=modeDef(), c=curCat();
+    activeTerms = qraw ? searchTerms(qraw) : null;
+    if(activeTerms){
+      var res=[];
+      def.base().forEach(function(p){
+        if(c && !def.match(p,c)) return;
+        if(y && p.year!==y) return;
+        var s=scorePost(p,activeTerms);
+        if(s>0) res.push([s,p]);
+      });
+      res.sort(function(a,b){return b[0]-a[0] || a[1].id-b[1].id});  // relevance, then oldest
+      FILTERED=res.map(function(r){return r[1]});
+    } else {
+      FILTERED=def.base().filter(function(p){
+        if(c && !def.match(p,c)) return false;
+        if(y && p.year!==y) return false;
+        return true;
+      });
+      if(sort==="new") FILTERED.sort(function(a,b){return b.id-a.id});
+      else if(sort==="az") FILTERED.sort(function(a,b){return a.title.localeCompare(b.title)});
+      else FILTERED.sort(function(a,b){return a.id-b.id});
+    }
     listStale=galleryStale=true; renderedPostId=null;
     var v=parseHash().view;
     if(v==="gallery"){renderGallery(true);galleryStale=false}
@@ -468,21 +537,27 @@
     listEl.innerHTML=h;
   }
   function renderList(){
+    var terms=activeTerms;
     if(!FILTERED.length){
-      listEl.innerHTML='<div class="empty">'+(mode==="faq"?"No questions match.":"No posts match your search.")+'</div>';
+      var msg=terms?'No matches for &ldquo;'+escapeHtml(searchEl.value.trim())+'&rdquo;.'
+                   :(mode==="faq"?"No questions match.":"No posts match your search.");
+      listEl.innerHTML='<div class="empty">'+msg+'</div>';
       return;
     }
-    var faq=(mode==="faq");
+    // a secondary line: the matched snippet while searching, else the FAQ question
+    var sub = terms?"snip":(mode==="faq"?"q":"");
     var frag=document.createDocumentFragment();
     FILTERED.forEach(function(p){
       var d=document.createElement("div");
       d.className="item"+(p.id===selectedId?" selected":"");
       d.dataset.id=p.id;
       d.innerHTML='<div class="body"><div class="t"></div>'+
-        (faq?'<div class="q"></div>':'')+
+        (sub?'<div class="q"></div>':'')+
         '<div class="dt"><span class="d"></span></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
-      d.querySelector(".t").textContent=p.title;
-      if(faq && p.q) d.querySelector(".q").textContent=p.q;
+      var tEl=d.querySelector(".t");
+      if(terms) tEl.innerHTML=highlight(p.title,terms); else tEl.textContent=p.title;
+      if(sub==="snip") d.querySelector(".q").innerHTML=snippet(p.text||"",terms);
+      else if(sub==="q") d.querySelector(".q").textContent=p.q;
       d.querySelector(".dt .d").textContent=p.date;
       if(p.images.length){
         var badge=document.createElement("span");
@@ -562,6 +637,7 @@
       viewerEl.querySelectorAll(".content a").forEach(function(a){
         if(a.querySelector("img")) a.addEventListener("click",function(e){e.preventDefault()});
       });
+      if(activeTerms) highlightInEl(viewerEl.querySelector(".content"),activeTerms);
       viewerEl.scrollTop=0;
     });
   }

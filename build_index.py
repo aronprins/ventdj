@@ -227,7 +227,7 @@ for fn in sorted(os.listdir(POSTS_DIR)):
         "date": date,
         "year": year,
         "cat": overrides.get(pid) or cats.get(pid) or "other",
-        "text": ftext[:1200],
+        "text": ftext[:3000],   # full text for search/snippets (covers ~99% of posts)
         "images": images,
     }
     q, is_q = extract_question(ftext, title)

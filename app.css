@@ -121,6 +121,9 @@ a{color:var(--link);text-decoration:none}
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .list .item .q{color:var(--muted);font-size:12.5px;line-height:1.4;margin-top:3px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* search-match highlight (results titles/snippets + opened post body) */
+mark{background:#ffe08a;color:var(--text);border-radius:3px;padding:0 1.5px;
+  box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .list .item .dt{color:var(--muted);font-size:12px;margin-top:3px;
   display:flex;align-items:center;gap:7px}
 .list .item .imgs{display:inline-flex;align-items:center;gap:4px;
