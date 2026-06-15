@@ -87,7 +87,7 @@ with `categories.json`.
 - Plain ES5-style JS in one IIFE in `app.js`, no bundler, no dependencies
   (Font Awesome is the only external asset). Keep it that way unless asked.
 - Routing is hash-based for GitHub Pages deep-linking; preserve these. `#/` is
-  Discover (home); `#/reader` is the archive list. The reader is *mode-aware*:
+  Discover (home); `#/journal` is the archive list. The reader is *mode-aware*:
   `archive` plus four derived readers (`faq`, `how-to`, `people`, `authors`),
   each a prefix (`#/faq`, `#/how-to`, `#/people`, `#/authors`) with its own
   chips and post subset,

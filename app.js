@@ -20,10 +20,10 @@
       chipsEl=$("#chips"), aboutEl=$("#about"), galleryScreen=$("#screenGallery");
 
   // The reader is mode-aware: one list/detail/chips machinery drives the full
-  // archive and three derived "readers" (faq, how-to, people), each with its
-  // own chip set and post subset. `mode` selects which; each remembers its chip.
+  // archive and four derived "readers" (faq, how-to, people, authors), each with
+  // its own chip set and post subset. `mode` selects which; each remembers its chip.
   var mode="archive";
-  var catByMode={archive:"",faq:"","how-to":"",people:""};
+  var catByMode={archive:"",faq:"","how-to":"",people:"",authors:""};
   function curCat(){return catByMode[mode]}
   var FAQPOSTS=[];                 // POSTS.filter(faq), filled on load
   var TIDX=null;                   // {materials,people} -> {chips,idset,base} from topics.json
@@ -44,7 +44,7 @@
       return {tab:"discover",route:"#/"+m,base:function(){return x?x.base:[]},
         chips:function(){return x?x.chips:[["","All"]]},
         match:function(p,c){return !!(x&&x.idset[c]&&x.idset[c][p.id])}}; }
-    return {tab:"reader",route:"#/reader",base:function(){return POSTS},
+    return {tab:"reader",route:"#/journal",base:function(){return POSTS},
       chips:function(){return CATS},match:function(p,c){return p.cat===c}};
   }
   function slugify(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="26f0a55d";
+  var VERSION="dbe850c9";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -93,7 +93,7 @@
 
   // ---------- hash routing (GitHub Pages friendly) ----------
   // #/                       -> discover (home)
-  // #/reader                 -> the full archive list
+  // #/journal                -> the full archive list
   // #/gallery                -> gallery
   // #/post/<id>              -> post (archive)
   // #/photo/<file>           -> lightbox (gallery context)
@@ -108,7 +108,7 @@
     if(parts[0]==="gallery") return {view:"gallery"};
     if(parts[0]==="photo") return {view:"lightbox",ctx:"gallery",mode:"archive",f:parts[1]};
     var mode="archive";
-    if(parts[0]==="reader") parts=parts.slice(1);        // explicit archive list
+    if(parts[0]==="journal"||parts[0]==="reader") parts=parts.slice(1);   // archive list (reader = legacy alias)
     else if(parts[0]==="faq"||parts[0]==="how-to"||parts[0]==="people"||parts[0]==="authors"){ mode=parts[0]; parts=parts.slice(1); }
     if(parts[0]==="post"){
       var id=parseInt(parts[1],10);
@@ -155,7 +155,8 @@
       return;
     }
     backBtn.hidden=!(post || derived);
-    searchBtn.hidden=filterBtn.hidden=bare;
+    searchBtn.hidden=(post || id==="screenAbout");   // search also available on Discover
+    filterBtn.hidden=bare;                            // year/sort only on a list or gallery
     chipsEl.hidden=bare;
     if(bare) closeSearch();
   }
@@ -374,7 +375,7 @@
   // bottom tabs
   $("#tabDiscover").addEventListener("click",function(){navigate("#/")});
   $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
-  $("#tabReader").addEventListener("click",function(){navigate("#/reader")});
+  $("#tabReader").addEventListener("click",function(){navigate("#/journal")});
   $("#tabAbout").addEventListener("click",function(){navigate("#/about")});
   // topbar back steps up one level: a phone post -> its list, a derived reader's
   // list (or its split view) -> the Discover hub. (Archive list shows no back.)
@@ -419,7 +420,11 @@
   // ---------- search & filter UI ----------
   function openSearch(){searchbar.classList.add("open");searchEl.focus()}
   function closeSearch(){searchbar.classList.remove("open")}
-  searchBtn.addEventListener("click",openSearch);
+  // Search spans the whole archive, so searching from Discover drops into the Journal.
+  searchBtn.addEventListener("click",function(){
+    if(parseHash().view==="discover") navigate("#/journal");
+    openSearch();
+  });
   $("#searchClose").addEventListener("click",function(){
     if(searchEl.value){searchEl.value="";apply()}
     closeSearch();
