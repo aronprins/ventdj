@@ -71,6 +71,34 @@ def is_guest(title, ftext):
     if m and not GUEST_SELF.match(m.group(1)): return True
     return False
 
+# Recurring guest contributors worth highlighting. Each is (display name, name
+# regex). A post is attributed when that name sits at the byline position — an
+# "<Name> Writes" title or a "Written by <Name>" / "By <Name>" lead — which is
+# precise enough to avoid mislabelling posts that merely mention the person.
+CONTRIBUTORS = [
+    ("Mark Wade",        r"mark wade"),
+    ("Bob Abdou",        r"bob abdou"),
+    ("William Andersen", r"william (?:h\.? )?andersen|bill andersen"),
+    ("Dale Brown",       r"dale brown"),
+    ("Ken Groves",       r"ken groves"),
+    ("Kevin Detweiler",  r"kevin detweiler"),
+    ("Liz VonSeggen",    r"liz vonseggen"),
+    ("Arty Freda",       r"arty freda"),
+    ("Steve Engle",      r"steve engle"),
+]
+def slugify(s):
+    return re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
+CONTRIB_C = [(label, slugify(label),
+              re.compile(r"^(?:%s)\s+writes\b" % pat, re.I),
+              re.compile(r"^(?:written by|by)\s+(?:%s)\b" % pat, re.I))
+             for label, pat in CONTRIBUTORS]
+def attribute(title, ftext):
+    head = ftext[:90].strip(); tl = title.strip()
+    for label, slug, trx, lrx in CONTRIB_C:
+        if trx.match(tl) or lrx.match(head):
+            return label
+    return ""
+
 # ---- topic vocabularies (curated). Each entry: (slug, label, group, pattern).
 # Matching is case-insensitive over each post's full text; a post counts once.
 MATERIALS = [
@@ -210,6 +238,9 @@ for fn in sorted(os.listdir(POSTS_DIR)):
             rec["q"] = q[:240]
     if is_guest(title, ftext):
         rec["guest"] = 1
+        by = attribute(title, ftext)
+        if by:
+            rec["by"] = by
     posts.append(rec)
     ftexts.append(ftext)
 
@@ -235,6 +266,16 @@ topics = {
     "materials": build_index(MATERIALS, False),
     "people":    build_index(PEOPLE, True),
 }
+
+# Contributors index: recurring guest authors -> their columns (>= 2 pieces).
+by_author = collections.OrderedDict()
+for p in posts:
+    if p.get("by"):
+        by_author.setdefault(p["by"], []).append(p["id"])
+topics["authors"] = sorted(
+    [{"slug": slugify(label), "label": label, "n": len(ids), "ids": ids}
+     for label, ids in by_author.items() if len(ids) >= 2],
+    key=lambda x: -x["n"])
 
 # ---------- related posts (TF-IDF cosine, top 3) ----------
 def tokenize(s):
@@ -291,6 +332,7 @@ print(f"  FAQ posts: {faq_n}  ·  posts with related links: {rel_n}")
 fdist = collections.Counter(p.get("fcat") for p in posts if p.get("faq"))
 print("  FAQ categories:", dict(sorted(fdist.items(), key=lambda x: -x[1])))
 print("  guest-column posts (excluded from On this day):", sum(1 for p in posts if p.get("guest")))
+print("  contributors:", ", ".join(f"{a['label']}({a['n']})" for a in topics["authors"]))
 print(f"wrote {TOPICS_OUT}: {len(topics['materials'])} materials, {len(topics['people'])} people/figures")
 for k in ("materials", "people"):
     print(f"  {k}: " + ", ".join(f"{t['label']}({t['n']})" for t in topics[k]))

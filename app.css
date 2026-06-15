@@ -134,6 +134,11 @@ a{color:var(--link);text-decoration:none}
 .viewer .empty,.screen .empty{color:var(--muted);text-align:center;margin-top:30%}
 article.post h1{font-size:22px;line-height:1.28;margin:.1em 0 .3em}
 article.post .date{color:var(--muted);font-size:13px;margin:0 0 16px}
+/* guest-column byline under the date */
+.byline{display:flex;align-items:center;gap:7px;margin:-8px 0 16px;
+  font-size:12.5px;color:var(--muted)}
+.byline i{color:var(--accent);font-size:12px}
+.byline a{color:var(--link);font-weight:600}
 article.post .content{display:flow-root}   /* contain floated images so nothing escapes below */
 article.post .content img,article.post img{max-width:100%;height:auto;border-radius:12px;margin:8px 0;cursor:zoom-in}
 article.post .content a{word-break:break-word}

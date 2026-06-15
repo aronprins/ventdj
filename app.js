@@ -40,13 +40,14 @@
     m=m||mode;
     if(m==="faq") return {tab:"discover",route:"#/faq",base:function(){return FAQPOSTS},
       chips:function(){return FAQCATS},match:function(p,c){return p.fcat===c}};
-    if(m==="how-to"||m==="people"){ var x=TIDX&&TIDX[m];
+    if(m==="how-to"||m==="people"||m==="authors"){ var x=TIDX&&TIDX[m];
       return {tab:"discover",route:"#/"+m,base:function(){return x?x.base:[]},
         chips:function(){return x?x.chips:[["","All"]]},
         match:function(p,c){return !!(x&&x.idset[c]&&x.idset[c][p.id])}}; }
     return {tab:"reader",route:"#/reader",base:function(){return POSTS},
       chips:function(){return CATS},match:function(p,c){return p.cat===c}};
   }
+  function slugify(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
   function postHash(m,id){return (m==="archive"?"#/post/":"#/"+m+"/post/")+id}
   function postRoute(id){return postHash(mode,id)}
   function photoRoute(id,f){return postHash(mode,id)+"/photo/"+encodeURIComponent(f)}
@@ -55,7 +56,7 @@
   function buildTIDX(t){
     if(TIDX||!t) return;
     TIDX={};
-    [["how-to","materials"],["people","people"]].forEach(function(pair){
+    [["how-to","materials"],["people","people"],["authors","authors"]].forEach(function(pair){
       var mkey=pair[0], arr=t[pair[1]]||[], chips=[["","All"]], idset={}, union={};
       arr.forEach(function(it){ chips.push([it.slug,it.label]); var s={};
         it.ids.forEach(function(id){s[id]=1;union[id]=1}); idset[it.slug]=s; });
@@ -66,12 +67,12 @@
   }
   // how-to/people need topics.json before they can render; others are ready.
   function ensureMode(m,cb){
-    if((m==="how-to"||m==="people")&&!TIDX) loadTopics(function(t){buildTIDX(t);cb()});
+    if((m==="how-to"||m==="people"||m==="authors")&&!TIDX) loadTopics(function(t){buildTIDX(t);cb()});
     else cb();
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="e854cd53";
+  var VERSION="97e4aff3";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -108,7 +109,7 @@
     if(parts[0]==="photo") return {view:"lightbox",ctx:"gallery",mode:"archive",f:parts[1]};
     var mode="archive";
     if(parts[0]==="reader") parts=parts.slice(1);        // explicit archive list
-    else if(parts[0]==="faq"||parts[0]==="how-to"||parts[0]==="people"){ mode=parts[0]; parts=parts.slice(1); }
+    else if(parts[0]==="faq"||parts[0]==="how-to"||parts[0]==="people"||parts[0]==="authors"){ mode=parts[0]; parts=parts.slice(1); }
     if(parts[0]==="post"){
       var id=parseInt(parts[1],10);
       if(parts[2]==="photo") return {view:"lightbox",ctx:"post",mode:mode,id:id,f:parts[3]};
@@ -161,7 +162,8 @@
   var BRAND="Mr. D's Ventriloquist Journal";
   // Per-mode masthead: lead label + noun for the count.
   var MODEHEAD={archive:[BRAND,"posts"],faq:["FAQ","questions"],
-    "how-to":["How-to &amp; Materials","posts"],people:["People &amp; Figures","posts"]};
+    "how-to":["How-to &amp; Materials","posts"],people:["People &amp; Figures","posts"],
+    authors:["Contributors","columns"]};
   function setHomeTitle(){
     if(tab==="gallery"){
       appTitle.innerHTML=BRAND+' <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
@@ -347,6 +349,8 @@
     if(t){
       [["how-to","materials",'<i class="fa-solid fa-screwdriver-wrench"></i> How-to & materials',
         "Browse posts by what they're made of and how."],
+       ["authors","authors",'<i class="fa-solid fa-feather-pointed"></i> Contributors',
+        "Guest columns by other ventriloquists, alongside Mr. D."],
        ["people","people",'<i class="fa-solid fa-users"></i> People & figures',
         "The people and classic characters Mr. D wrote about."]].forEach(function(spec){
         var arr=t[spec[1]]||[]; if(!arr.length) return;
@@ -533,6 +537,13 @@
         '<div class="content">'+body+'</div></article><div class="related"></div><div class="navbtns"></div>';
       viewerEl.querySelector("h1").textContent=p.title;
       viewerEl.querySelector(".date").textContent="#"+String(p.id).padStart(4,"0")+" · "+p.date;
+      if(p.by){
+        var bl=document.createElement("p");
+        bl.className="byline";
+        bl.innerHTML='<i class="fa-solid fa-feather-pointed"></i> Guest column by <a></a>';
+        var a=bl.querySelector("a"); a.textContent=p.by; a.href="#/authors/"+slugify(p.by);
+        viewerEl.querySelector(".post .date").after(bl);
+      }
       renderRelated(p);
       var nb=viewerEl.querySelector(".navbtns");
       nb.appendChild(prev?mkBtn('<i class="fa-solid fa-chevron-left"></i> Prev',prev.id):spacer());

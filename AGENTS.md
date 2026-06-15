@@ -88,8 +88,9 @@ with `categories.json`.
   (Font Awesome is the only external asset). Keep it that way unless asked.
 - Routing is hash-based for GitHub Pages deep-linking; preserve these. `#/` is
   Discover (home); `#/reader` is the archive list. The reader is *mode-aware*:
-  `archive` plus three derived readers (`faq`, `how-to`, `people`), each a
-  prefix (`#/faq`, `#/how-to`, `#/people`) with its own chips and post subset,
+  `archive` plus four derived readers (`faq`, `how-to`, `people`, `authors`),
+  each a prefix (`#/faq`, `#/how-to`, `#/people`, `#/authors`) with its own
+  chips and post subset,
   an optional `/<category>` segment, and `/post/<id>` (`#/post/<id>` stays
   unprefixed for archive). Also `#/gallery`, `#/photo/<file>`,
   `#/post/<id>/photo/<file>`.
