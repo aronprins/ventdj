@@ -19,19 +19,65 @@
       filterSheet=$("#filterSheet"), sheetBackdrop=$("#sheetBackdrop"),
       chipsEl=$("#chips"), aboutEl=$("#about"), galleryScreen=$("#screenGallery");
 
-  // category filter (slug -> label); "" = All
-  var cat="";
+  // The reader is mode-aware: one list/detail/chips machinery drives the full
+  // archive and three derived "readers" (faq, materials, people), each with its
+  // own chip set and post subset. `mode` selects which; each remembers its chip.
+  var mode="archive";
+  var catByMode={archive:"",faq:"",materials:"",people:""};
+  function curCat(){return catByMode[mode]}
+  var FAQPOSTS=[];                 // POSTS.filter(faq), filled on load
+  var TIDX=null;                   // {materials,people} -> {chips,idset,base} from topics.json
+  var appEl=document.querySelector(".app");
+  function setReading(on){appEl.classList.toggle("reading",!!on)}
+
+  // archive category chips (slug -> label); "" = All
   var CATS=[["","All"],["figures","Figures"],["forsale","For Sale"],["making","Making"],
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
+  // A mode descriptor: which tab owns it, its base route, its post set, its chip
+  // list, and how a post matches a selected chip. (FAQCATS/TIDX resolve later.)
+  function modeDef(m){
+    m=m||mode;
+    if(m==="faq") return {tab:"discover",route:"#/faq",base:function(){return FAQPOSTS},
+      chips:function(){return FAQCATS},match:function(p,c){return p.fcat===c}};
+    if(m==="materials"||m==="people"){ var x=TIDX&&TIDX[m];
+      return {tab:"discover",route:"#/"+m,base:function(){return x?x.base:[]},
+        chips:function(){return x?x.chips:[["","All"]]},
+        match:function(p,c){return !!(x&&x.idset[c]&&x.idset[c][p.id])}}; }
+    return {tab:"reader",route:"#/",base:function(){return POSTS},
+      chips:function(){return CATS},match:function(p,c){return p.cat===c}};
+  }
+  function postHash(m,id){return (m==="archive"?"#/post/":"#/"+m+"/post/")+id}
+  function postRoute(id){return postHash(mode,id)}
+  function photoRoute(id,f){return postHash(mode,id)+"/photo/"+encodeURIComponent(f)}
+  // Build the materials/people indexes (chips + id sets + union base) once.
+  function buildTIDX(t){
+    if(TIDX||!t) return;
+    TIDX={};
+    ["materials","people"].forEach(function(kind){
+      var arr=t[kind]||[],chips=[["","All"]],idset={},union={};
+      arr.forEach(function(it){ chips.push([it.slug,it.label]); var s={};
+        it.ids.forEach(function(id){s[id]=1;union[id]=1}); idset[it.slug]=s; });
+      var base=Object.keys(union).map(function(id){return BYID[+id]}).filter(Boolean)
+                .sort(function(a,b){return a.id-b.id});
+      TIDX[kind]={chips:chips,idset:idset,base:base};
+    });
+  }
+  // materials/people need topics.json before they can render; others are ready.
+  function ensureMode(m,cb){
+    if((m==="materials"||m==="people")&&!TIDX) loadTopics(function(t){buildTIDX(t);cb()});
+    else cb();
+  }
+
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="2ab145da";
+  var VERSION="419e533c";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
   fetch("data/posts.json?v="+VERSION).then(function(r){return r.json()}).then(function(data){
     POSTS=data; TOTAL=POSTS.length.toLocaleString();
     POSTS.forEach(function(p){BYID[p.id]=p});
+    FAQPOSTS=POSTS.filter(function(p){return p.faq});
     Array.from(new Set(POSTS.map(function(p){return p.year}).filter(Boolean))).sort()
       .forEach(function(y){var o=document.createElement("option");o.value=y;o.textContent=y;yearEl.appendChild(o)});
     POSTS.forEach(function(p){p.images.forEach(function(im){galleryItems.push({f:im.f,t:im.t,post:p})})});
@@ -49,20 +95,22 @@
   // #/post/<id>              -> post
   // #/photo/<file>           -> lightbox (gallery context)
   // #/post/<id>/photo/<file> -> lightbox (in-post context)
+  // Reader-like routes can carry a mode prefix (faq/materials/people) and an
+  // optional category slug, e.g. #/materials/basswood or #/faq/post/50/photo/x.
   function parseHash(){
     var parts=location.hash.replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
     if(parts[0]==="about") return {view:"about"};
     if(parts[0]==="discover") return {view:"discover"};
-    if(parts[0]==="faq") return {view:"collection",kind:"faq"};
-    if(parts[0]==="topic") return {view:"collection",kind:"topic",tk:parts[1],slug:parts[2]};
-    if(parts[0]==="gallery") return {view:"gallery"};
+    var mode="archive";
+    if(parts[0]==="faq"||parts[0]==="materials"||parts[0]==="people"){ mode=parts[0]; parts=parts.slice(1); }
+    if(mode==="archive" && parts[0]==="gallery") return {view:"gallery"};
+    if(mode==="archive" && parts[0]==="photo") return {view:"lightbox",ctx:"gallery",mode:mode,f:parts[1]};
     if(parts[0]==="post"){
       var id=parseInt(parts[1],10);
-      if(parts[2]==="photo") return {view:"lightbox",ctx:"post",id:id,f:parts[3]};
-      return {view:"post",id:id};
+      if(parts[2]==="photo") return {view:"lightbox",ctx:"post",mode:mode,id:id,f:parts[3]};
+      return {view:"post",mode:mode,id:id};
     }
-    if(parts[0]==="photo") return {view:"lightbox",ctx:"gallery",f:parts[1]};
-    return {view:"list"};
+    return {view:"list",mode:mode,scat:parts[0]||""};
   }
   function navigate(h){ if(location.hash===h) render(parseHash()); else location.hash=h; }
   function replaceNav(h){ history.replaceState(null,"",h); render(parseHash()); }
@@ -72,26 +120,24 @@
   splitMq.addEventListener("change",function(){render(parseHash())});
 
   function render(state){
-    state=state||{view:"list"};
+    state=state||{view:"list",mode:"archive"};
     if(state.view!=="lightbox") hideLb();
-    if(state.view==="gallery")       showGallery();
-    else if(state.view==="about")    showAbout();
-    else if(state.view==="discover") showDiscover();
-    else if(state.view==="collection") showCollection(state);
-    else if(state.view==="post")     showPost(state.id);
+    if(state.view==="gallery")       { setReading(false); showGallery(); }
+    else if(state.view==="about")    { setReading(false); showAbout(); }
+    else if(state.view==="discover") { setReading(false); showDiscover(); }
+    else if(state.view==="post")     showPost(state);
     else if(state.view==="lightbox") showLightboxState(state);
-    else                             showList();
+    else                             showList(state);
   }
 
   // ---------- screens ----------
   function showScreen(id){
-    ["screenList","screenPost","screenGallery","screenDiscover","screenCollection","screenAbout"].forEach(function(s){
+    ["screenList","screenPost","screenGallery","screenDiscover","screenAbout"].forEach(function(s){
       document.getElementById(s).classList.toggle("active", s===id);
     });
     var post=(id==="screenPost");
-    var coll=(id==="screenCollection");
     // screens with no search / filter / chips
-    var bare=(post || coll || id==="screenAbout" || id==="screenDiscover");
+    var bare=(post || id==="screenAbout" || id==="screenDiscover");
     // In split view the list never leaves, so the post pane keeps the list's
     // chrome (search / filter / chips) and needs no back button.
     if(isSplit() && (id==="screenList" || id==="screenPost")){
@@ -100,20 +146,24 @@
       chipsEl.hidden=false;
       return;
     }
-    backBtn.hidden=!(post || coll);             // post and collection pages can go back
+    backBtn.hidden=!post;
     searchBtn.hidden=filterBtn.hidden=bare;
     chipsEl.hidden=bare;
     if(bare) closeSearch();
   }
   var BRAND="Mr. D's Ventriloquist Journal";
+  // Per-mode masthead: lead label + noun for the count.
+  var MODEHEAD={archive:[BRAND,"posts"],faq:["FAQ","questions"],
+    materials:["How-to &amp; Materials","posts"],people:["People &amp; Figures","posts"]};
   function setHomeTitle(){
-    if(tab==="reader"){
-      appTitle.innerHTML = FILTERED.length===POSTS.length
-        ? BRAND+' <small>'+TOTAL+' posts</small>'
-        : BRAND+' <small>'+FILTERED.length.toLocaleString()+' of '+TOTAL+' posts</small>';
-    } else {
+    if(tab==="gallery"){
       appTitle.innerHTML=BRAND+' <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
+      return;
     }
+    var h=MODEHEAD[mode], total=modeDef().base().length, n=FILTERED.length;
+    appTitle.innerHTML = (n===total)
+      ? h[0]+' <small>'+total.toLocaleString()+' '+h[1]+'</small>'
+      : h[0]+' <small>'+n.toLocaleString()+' of '+total.toLocaleString()+' '+h[1]+'</small>';
   }
   function setTabUI(t){
     tab=t;
@@ -122,13 +172,28 @@
     $("#tabDiscover").classList.toggle("active",t==="discover");
     $("#tabAbout").classList.toggle("active",t==="about");
   }
-  function showList(){
-    setTabUI("reader");
-    if(listStale){renderList();listStale=false}
-    showScreen("screenList"); setHomeTitle(); updateCount();
-    // split view: if no post is open yet, invite a choice in the detail pane
-    if(isSplit() && renderedPostId===null)
-      viewerEl.innerHTML='<div class="empty">Select a post from the list to start reading.</div>';
+  function showList(state){
+    var m=(state&&state.mode)||"archive", scat=state?state.scat:undefined;
+    ensureMode(m,function(){
+      switchMode(m, scat);                 // sets mode + chips + category + FILTERED
+      setReading(true);
+      setTabUI(modeDef().tab);
+      if(listStale){renderList();listStale=false}
+      showScreen("screenList"); setHomeTitle(); updateCount();
+      // split view: if no post is open yet, invite a choice in the detail pane
+      if(isSplit() && renderedPostId===null)
+        viewerEl.innerHTML='<div class="empty">'+
+          (m==="faq"?"Select a question to start reading.":"Select a post from the list to start reading.")+'</div>';
+    });
+  }
+  // Enter a mode (optionally with a preselected category) and recompute the list.
+  function switchMode(m, scat){
+    var changed=(m!==mode);
+    mode=m;
+    if(scat!==undefined) catByMode[mode]=scat;       // category came from the route
+    if(changed){ selectedId=null; searchEl.value=""; }
+    renderChips();
+    apply();
   }
   function showGallery(){
     setTabUI("gallery");
@@ -175,12 +240,12 @@
   }
 
   // ---------- discover (FAQ · materials · people · on this day) ----------
-  var discoverEl=$("#discover"), collectionEl=$("#collection");
+  var discoverEl=$("#discover");
   var TOPICS=null;
   function loadTopics(cb){
     if(TOPICS) return cb(TOPICS);
     fetch("data/topics.json?v="+VERSION).then(function(r){return r.json()}).then(function(t){
-      TOPICS=t; cb(t);
+      TOPICS=t; buildTIDX(t); cb(t);
     }).catch(function(){ cb(null); });
   }
   // month/day match of posts from Mr. D's lifetime (strictly before the
@@ -211,14 +276,14 @@
   }
 
   function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
-  function postRow(p,subtitle){
+  function postRow(p,subtitle,hash){
     var d=el("button","drow");
     d.innerHTML='<span class="drow-b"><span class="drow-t"></span>'+
       (subtitle?'<span class="drow-s"></span>':'<span class="drow-d"></span>')+
       '</span><i class="fa-solid fa-chevron-right"></i>';
     d.querySelector(".drow-t").textContent=p.title;
     d.querySelector(subtitle?".drow-s":".drow-d").textContent=subtitle||p.date;
-    d.addEventListener("click",function(){navigate("#/post/"+p.id)});
+    d.addEventListener("click",function(){navigate(hash||("#/post/"+p.id))});
     return d;
   }
   function chip(label,n,hash){
@@ -262,116 +327,36 @@
       var sample=faqs.filter(function(p){return p.q}), step=Math.max(1,Math.floor(sample.length/4)), picks=[];
       for(var i=0;i<sample.length && picks.length<4;i+=step) picks.push(sample[i]);
       var rows=el("div","drows");
-      picks.forEach(function(p){ rows.appendChild(postRow(p,p.q)); });
+      picks.forEach(function(p){ rows.appendChild(postRow(p,p.q,"#/faq/post/"+p.id)); });
       f.appendChild(rows);
       var more=el("a","dmore",'Browse all '+faqs.length+' questions <i class="fa-solid fa-arrow-right"></i>');
       more.href="#/faq"; f.appendChild(more);
       discoverEl.appendChild(f);
     }
 
-    // Materials & People clouds
+    // Materials & People clouds — each chip opens that mode's reader, prefiltered
     if(t){
       [["materials",'<i class="fa-solid fa-screwdriver-wrench"></i> How-to & materials',
-        "Browse posts by what they're made of and how.","m"],
+        "Browse posts by what they're made of and how."],
        ["people",'<i class="fa-solid fa-users"></i> People & figures',
-        "The vents and classic characters Mr. D wrote about.","p"]].forEach(function(spec){
+        "The vents and classic characters Mr. D wrote about."]].forEach(function(spec){
         var arr=t[spec[0]]||[]; if(!arr.length) return;
         var s=el("section","dsec");
         s.appendChild(el("h2","dsec-h",spec[1]));
         s.appendChild(el("p","dsec-sub",spec[2]));
         var cloud=el("div","tcloud");
-        arr.forEach(function(it){ cloud.appendChild(chip(it.label,it.n,"#/topic/"+spec[3]+"/"+it.slug)); });
+        arr.forEach(function(it){ cloud.appendChild(chip(it.label,it.n,"#/"+spec[0]+"/"+it.slug)); });
         s.appendChild(cloud);
         discoverEl.appendChild(s);
       });
     }
   }
 
-  // ---------- collection page (FAQ list / a single topic) ----------
-  // FAQ buckets — keep slugs/labels in sync with FAQ_CATS in build_index.py.
+  // FAQ category chips — keep slugs/labels in sync with FAQ_CATS in build_index.py.
   var FAQCATS=[["","All"],["building","Building"],["repair","Repair & care"],
     ["mechanics","Eyes & mechanics"],["voice","Voice & technique"],
     ["performing","Performing"],["identify","ID & value"],
     ["products","Course & store"],["other","Other"]];
-  var faqCat="";
-
-  // A reader-style list row (same markup/UX as the Reader list) for collections.
-  function collItem(p,qline){
-    var d=el("div","item"); d.dataset.id=p.id;
-    var h='<div class="body"><div class="t"></div>'+
-      (qline?'<div class="q"></div>':'')+
-      '<div class="dt"><span class="d"></span></div></div>'+
-      '<span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
-    d.innerHTML=h;
-    d.querySelector(".t").textContent=p.title;
-    if(qline) d.querySelector(".q").textContent=qline;
-    d.querySelector(".dt .d").textContent=p.date;
-    if(p.images.length){
-      var badge=el("span","imgs",'<i class="fa-solid fa-image"></i>'+p.images.length);
-      d.querySelector(".dt").appendChild(badge);
-    }
-    d.addEventListener("click",function(){navigate("#/post/"+p.id)});
-    return d;
-  }
-
-  function showCollection(state){
-    setTabUI("discover");
-    showScreen("screenCollection");
-    collectionEl.scrollTop=0;
-    if(state.kind==="faq"){
-      faqCat="";
-      renderFaq();
-    } else {
-      loadTopics(function(t){
-        var kind=state.tk==="p"?"people":"materials";
-        var arr=(t&&t[kind])||[], topic=null;
-        for(var i=0;i<arr.length;i++) if(arr[i].slug===state.slug){topic=arr[i];break}
-        if(!topic){ collectionEl.innerHTML='<div class="empty">Topic not found.</div>'; return; }
-        var posts=topic.ids.map(function(id){return BYID[id]}).filter(Boolean)
-                    .sort(function(a,b){return a.id-b.id});
-        appTitle.innerHTML=escapeHtml(topic.label)+' <small>'+posts.length+' posts</small>';
-        var icon=kind==="people"?'<i class="fa-solid fa-user"></i>':'<i class="fa-solid fa-screwdriver-wrench"></i>';
-        collectionEl.innerHTML="";
-        collectionEl.appendChild(el("div","chead",icon+' <span>'+escapeHtml(topic.label)+
-          '</span><span class="cn">'+posts.length+'</span>'));
-        var list=el("div","list");
-        posts.forEach(function(p){ list.appendChild(collItem(p,"")); });
-        collectionEl.appendChild(list);
-      });
-    }
-  }
-
-  // FAQ index — reader-style list with its own category chip bar.
-  function renderFaq(){
-    var faqs=POSTS.filter(function(p){return p.faq});
-    appTitle.innerHTML='FAQ <small>'+faqs.length+' questions</small>';
-    collectionEl.innerHTML="";
-    var chips=el("div","chips faq-chips");
-    FAQCATS.forEach(function(c){
-      var n=c[0]?faqs.filter(function(p){return p.fcat===c[0]}).length:faqs.length;
-      if(c[0] && !n) return;                       // hide empty buckets
-      var b=el("button","chip"+(c[0]===faqCat?" active":""),escapeHtml(c[1]));
-      b.addEventListener("click",function(){
-        if(faqCat===c[0]) return;
-        faqCat=c[0];
-        Array.prototype.forEach.call(chips.children,function(x){x.classList.toggle("active",x===b)});
-        fillFaq();
-      });
-      chips.appendChild(b);
-    });
-    collectionEl.appendChild(chips);
-    collectionEl.appendChild(el("div","list",null)).id="faqList";
-    fillFaq();
-  }
-  function fillFaq(){
-    var list=document.getElementById("faqList"); if(!list) return;
-    var faqs=POSTS.filter(function(p){return p.faq && (!faqCat || p.fcat===faqCat)});
-    list.innerHTML="";
-    if(!faqs.length){ list.appendChild(el("div","empty","No questions in this category.")); return; }
-    var frag=document.createDocumentFragment();
-    faqs.forEach(function(p){ frag.appendChild(collItem(p,p.q||"")); });
-    list.appendChild(frag);
-  }
 
   // bottom tabs
   $("#tabReader").addEventListener("click",function(){navigate("#/")});
@@ -385,8 +370,9 @@
   function norm(s){return (s||"").toLowerCase()}
   function apply(){
     var q=norm(searchEl.value.trim()), y=yearEl.value, sort=sortEl.value;
-    FILTERED=POSTS.filter(function(p){
-      if(cat && p.cat!==cat) return false;
+    var def=modeDef(), c=curCat();
+    FILTERED=def.base().filter(function(p){
+      if(c && !def.match(p,c)) return false;
       if(y && p.year!==y) return false;
       if(!q) return true;
       return norm(p.title).indexOf(q)>=0 || norm(p.text).indexOf(q)>=0;
@@ -424,19 +410,21 @@
   $("#filterDone").addEventListener("click",closeSheet);
   $("#filterReset").addEventListener("click",function(){yearEl.value="";sortEl.value="old";apply()});
 
-  // ---------- category chips ----------
+  // ---------- category chips (mode-aware) ----------
   function renderChips(){
-    var frag=document.createDocumentFragment();
-    CATS.forEach(function(c){
+    var defs=modeDef().chips(), active=curCat(), frag=document.createDocumentFragment();
+    defs.forEach(function(c){
       var b=document.createElement("button");
-      b.className="chip"+(c[0]===cat?" active":"");
+      b.className="chip"+(c[0]===active?" active":"");
       b.textContent=c[1];
       b.addEventListener("click",function(){
-        if(cat===c[0]) return;
-        cat=c[0];
+        if(curCat()===c[0]) return;
+        catByMode[mode]=c[0];
         Array.prototype.forEach.call(chipsEl.children,function(el,i){
-          el.classList.toggle("active",CATS[i][0]===cat);
+          el.classList.toggle("active",defs[i][0]===c[0]);
         });
+        // derived readers reflect the selection in the URL (silent — no reload)
+        if(mode!=="archive") history.replaceState(null,"",c[0]?modeDef().route+"/"+c[0]:modeDef().route);
         apply();
       });
       frag.appendChild(b);
@@ -453,16 +441,20 @@
   }
   function renderList(){
     if(!FILTERED.length){
-      listEl.innerHTML='<div class="empty">No posts match your search.</div>'; return;
+      listEl.innerHTML='<div class="empty">'+(mode==="faq"?"No questions match.":"No posts match your search.")+'</div>';
+      return;
     }
+    var faq=(mode==="faq");
     var frag=document.createDocumentFragment();
     FILTERED.forEach(function(p){
       var d=document.createElement("div");
       d.className="item"+(p.id===selectedId?" selected":"");
       d.dataset.id=p.id;
       d.innerHTML='<div class="body"><div class="t"></div>'+
+        (faq?'<div class="q"></div>':'')+
         '<div class="dt"><span class="d"></span></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
       d.querySelector(".t").textContent=p.title;
+      if(faq && p.q) d.querySelector(".q").textContent=p.q;
       d.querySelector(".dt .d").textContent=p.date;
       if(p.images.length){
         var badge=document.createElement("span");
@@ -470,7 +462,7 @@
         badge.innerHTML='<i class="fa-solid fa-image"></i>'+p.images.length;
         d.querySelector(".dt").appendChild(badge);
       }
-      d.addEventListener("click",function(){navigate("#/post/"+p.id)});
+      d.addEventListener("click",function(){navigate(postRoute(p.id))});
       frag.appendChild(d);
     });
     listEl.innerHTML=""; listEl.appendChild(frag);
@@ -488,15 +480,22 @@
     if(hit && hit.scrollIntoView) hit.scrollIntoView({block:"nearest"});
   }
 
-  function showPost(id){
-    var p=BYID[id]; if(!p){navigate("#/");return}
+  function showPost(state){
+    var id=state.id, m=state.mode||"archive";
+    ensureMode(m,function(){ renderPost(id,m); });
+  }
+  function renderPost(id,m){
+    if(m!==mode) switchMode(m);                // deep-linked straight into a mode
+    setReading(true);
+    var p=BYID[id]; if(!p){navigate(modeDef().route);return}
     if(isSplit()){
-      // detail-beside-list: keep the Reader tab/title and mark the chosen row
-      setTabUI("reader");
+      // detail-beside-list: keep the mode's tab/title and mark the chosen row
+      setTabUI(modeDef().tab);
       if(listStale){renderList();listStale=false}
       setHomeTitle();
       markSelected(id);
     } else {
+      setTabUI(modeDef().tab);
       appTitle.innerHTML='Reading <small>#'+String(p.id).padStart(4,"0")+' · '+p.date+'</small>';
     }
     showScreen("screenPost");
@@ -522,7 +521,7 @@
       viewerEl.querySelectorAll(".content img").forEach(function(im){
         im.addEventListener("click",function(e){
           e.preventDefault();
-          navigate("#/post/"+id+"/photo/"+encodeURIComponent(im.getAttribute("src").replace(/^images\//,"")));
+          navigate(photoRoute(id,im.getAttribute("src").replace(/^images\//,"")));
         });
       });
       viewerEl.querySelectorAll(".content a").forEach(function(a){
@@ -537,28 +536,31 @@
     var rel=(p.rel||[]).map(function(id){return BYID[id]}).filter(Boolean);
     if(!rel.length){ box.remove(); return; }
     box.innerHTML='<div class="related-h">Related posts</div>';
+    var base=modeDef().base();
     rel.forEach(function(r){
       var a=document.createElement("button");
       a.className="related-i";
       a.innerHTML='<span class="related-t"></span><span class="related-d"></span>';
       a.querySelector(".related-t").textContent=r.title;
       a.querySelector(".related-d").textContent=r.date;
-      a.addEventListener("click",function(){replaceNav("#/post/"+r.id)});
+      // stay in the current reader if the related post belongs to it, else open in the archive
+      var rt=(base.indexOf(r)>=0)?postRoute(r.id):"#/post/"+r.id;
+      a.addEventListener("click",function(){replaceNav(rt)});
       box.appendChild(a);
     });
   }
 
   // Prev/Next replaces the current history entry so "back" still leaves reading.
   function mkBtn(label,id){var b=document.createElement("button");b.className="btn";
-    b.innerHTML=label;b.addEventListener("click",function(){replaceNav("#/post/"+id)});return b}
+    b.innerHTML=label;b.addEventListener("click",function(){replaceNav(postRoute(id))});return b}
   function spacer(){var s=document.createElement("span");s.className="btn";s.style.visibility="hidden";return s}
 
   // ---------- gallery ----------
   function galleryFiltered(){
-    var q=norm(searchEl.value.trim()), y=yearEl.value;
-    if(!q && !y && !cat) return galleryItems;
+    var q=norm(searchEl.value.trim()), y=yearEl.value, gcat=catByMode.archive;
+    if(!q && !y && !gcat) return galleryItems;
     return galleryItems.filter(function(it){
-      if(cat && it.post.cat!==cat) return false;
+      if(gcat && it.post.cat!==gcat) return false;
       if(y && it.post.year!==y) return false;
       if(!q) return true;
       return norm(it.post.title).indexOf(q)>=0 || norm(it.post.text).indexOf(q)>=0;
@@ -606,7 +608,7 @@
   var lb=$("#lightbox"), lbTrack=$("#lbTrack"), lbCap=$("#lbCap"), lbCount=$("#lbCount"),
       lbSlides=Array.prototype.slice.call(lb.querySelectorAll(".lb-slide")),
       lbImgs=lbSlides.map(function(s){return s.querySelector("img")}),
-      lbList=null, lbIndex=0, lbCtx="gallery", lbPostId=null, lbBusy=false;
+      lbList=null, lbIndex=0, lbCtx="gallery", lbMode="archive", lbPostId=null, lbBusy=false;
   function activeImg(){return lbImgs[1]}
   function vw(){return window.innerWidth}
   // Some archived full-size images are dead stubs (saved as tiny HTML error
@@ -622,14 +624,14 @@
   function indexOfFull(list,f){for(var i=0;i<list.length;i++){if(list[i].f===f)return i}return -1}
   function photoHash(it){
     return lbCtx==="post"
-      ? "#/post/"+it.post.id+"/photo/"+encodeURIComponent(it.f)
+      ? postHash(lbMode,it.post.id)+"/photo/"+encodeURIComponent(it.f)
       : "#/photo/"+encodeURIComponent(it.f);
   }
 
   function showLightboxState(state){
-    lbCtx=state.ctx;
+    lbCtx=state.ctx; lbMode=state.mode||"archive";
     if(state.ctx==="post"){
-      showPost(state.id);
+      showPost(state);
       var p=BYID[state.id]; if(!p){history.back();return}
       var imgs=(p.images&&p.images.length)?p.images:[{f:state.f}];
       lbList=imgs.map(function(im){return {f:im.f,t:im.t,post:p}});
@@ -667,7 +669,7 @@
     lbCap.innerHTML='<a class="open" href="#">'+escapeHtml(it.post.title)+'</a>'+
       '<span class="meta"> · #'+String(it.post.id).padStart(4,"0")+' · '+it.post.date+'</span>';
     lbCap.querySelector(".open").addEventListener("click",function(e){
-      e.preventDefault(); navigate("#/post/"+it.post.id);
+      e.preventDefault(); navigate(postHash(lbMode,it.post.id));
     });
   }
   function setTrack(dx,animate){
@@ -807,7 +809,7 @@
   $("#lbClose").addEventListener("click",function(){history.back()});
   $("#lbPrev").addEventListener("click",function(){go(-1)});
   $("#lbNext").addEventListener("click",function(){go(1)});
-  $("#lbOpen").addEventListener("click",function(){ if(lbPostId!=null) navigate("#/post/"+lbPostId); });
+  $("#lbOpen").addEventListener("click",function(){ if(lbPostId!=null) navigate(postHash(lbMode,lbPostId)); });
   document.addEventListener("keydown",function(e){
     if(!lb.classList.contains("open"))return;
     if(e.key==="Escape")history.back();

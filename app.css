@@ -213,18 +213,6 @@ article.post .content a{word-break:break-word}
 .tchip .tn{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:11px;
   line-height:1;padding:3px 7px;border-radius:999px}
 
-/* collection page (FAQ list / single topic) — full-bleed, reader-style rows */
-.collection{padding:0 0 calc(34px + var(--safe-b))}
-/* FAQ category chips reuse the reader chip bar, pinned while the list scrolls */
-.faq-chips{position:sticky;top:0;z-index:3}
-.chead{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;
-  padding:16px 16px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;
-  background:var(--app);z-index:2}
-.chead i{color:var(--accent)}
-.chead>span:first-of-type{flex:1;min-width:0}
-.chead .cn{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px;
-  padding:3px 9px;border-radius:999px;flex:none}
-
 /* related posts under a post body */
 .related{clear:both;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
 .related-h{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;
@@ -321,10 +309,6 @@ article.post .content a{word-break:break-word}
   article.post h1{font-size:26px}
   .about{max-width:720px;margin:0 auto}
 
-  /* collection (FAQ / topic) — wider, two-column reader-style list */
-  .collection{max-width:900px;margin:0 auto}
-  #screenCollection .list{display:grid;grid-template-columns:1fr 1fr;column-gap:30px}
-  #screenCollection .list .empty{grid-column:1 / -1}
 
   /* ---- discover: a roomier two-column dashboard on wide screens ---- */
   .discover{
@@ -349,26 +333,27 @@ article.post .content a{word-break:break-word}
   .dcard:hover,.tchip:hover{filter:brightness(.97)}
   .drow:hover,.related-i:hover{background:var(--soft)}
 
-  /* ---- split view: the Reader tab shows the list and the post together ---- */
-  .app:has(#tabReader.active) .screens{
+  /* ---- split view: any reader (archive / FAQ / materials / people) shows the
+     list and the post together. `.reading` is set for list + post views only. ---- */
+  .app.reading .screens{
     display:grid;
     grid-template-columns:minmax(300px,360px) 1fr;
     grid-template-rows:100%;
   }
-  .app:has(#tabReader.active) #screenList,
-  .app:has(#tabReader.active) #screenPost{
+  .app.reading #screenList,
+  .app.reading #screenPost{
     position:static;display:block;min-height:0;overflow:auto;animation:none;
   }
-  .app:has(#tabReader.active) #screenList{
+  .app.reading #screenList{
     border-right:1px solid var(--line);background:var(--app);
   }
   /* the post pane reads against a faintly warmer ground, like an iPad detail view */
-  .app:has(#tabReader.active) #screenPost{background:var(--cream)}
+  .app.reading #screenPost{background:var(--cream)}
 
   /* selected row in the list pane — same warm tint as hover, not the accent red */
   .list .item.selected{background:var(--soft)}
   /* the chevron is meaningless once the post opens beside the list */
-  .app:has(#tabReader.active) .list .item .chev{display:none}
+  .app.reading .list .item .chev{display:none}
 
   /* hover affordances (touch devices never match :hover) */
   .list .item:hover{background:var(--soft)}
