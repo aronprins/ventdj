@@ -25,7 +25,7 @@
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="266db314";
+  var VERSION="b4639b2b";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -383,6 +383,15 @@
       lbList=null, lbIndex=0, lbCtx="gallery", lbPostId=null, lbBusy=false;
   function activeImg(){return lbImgs[1]}
   function vw(){return window.innerWidth}
+  // Some archived full-size images are dead stubs (saved as tiny HTML error
+  // pages). When the full image fails to decode, fall back to the thumbnail so
+  // the slide isn't blank. The src===thumb guard stops an infinite retry loop.
+  lbImgs.forEach(function(img){
+    img.addEventListener("error",function(){
+      var thumb=img.getAttribute("data-thumb");
+      if(thumb && img.getAttribute("src")!==thumb) img.src=thumb;
+    });
+  });
   function escapeHtml(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
   function indexOfFull(list,f){for(var i=0;i<list.length;i++){if(list[i].f===f)return i}return -1}
   function photoHash(it){
@@ -397,7 +406,7 @@
       showPost(state.id);
       var p=BYID[state.id]; if(!p){history.back();return}
       var imgs=(p.images&&p.images.length)?p.images:[{f:state.f}];
-      lbList=imgs.map(function(im){return {f:im.f,post:p}});
+      lbList=imgs.map(function(im){return {f:im.f,t:im.t,post:p}});
       lbIndex=Math.max(0,indexOfFull(lbList,state.f));
     } else {
       showGallery();
@@ -413,7 +422,10 @@
   function layoutWindow(){
     for(var k=-1;k<=1;k++){
       var img=lbImgs[k+1], it=lbList[lbIndex+k];
-      if(it){ if(img.getAttribute("src")!=="images/"+it.f) img.src="images/"+it.f;
+      if(it){ var full="images/"+it.f, thumb=it.t?"images/"+it.t:"";
+              img.setAttribute("data-thumb",thumb);
+              // skip reload if already showing this image (full or thumb fallback)
+              if(img.getAttribute("src")!==full && img.getAttribute("src")!==thumb) img.src=full;
               img.parentNode.style.visibility="visible"; }
       else  { img.removeAttribute("src"); img.parentNode.style.visibility="hidden"; }
     }
