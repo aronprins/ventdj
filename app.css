@@ -348,10 +348,10 @@ article.post .content a{word-break:break-word}
   .about{max-width:720px;margin:0 auto}
 
 
-  /* inline Discover search: a centered field + centered results */
+  /* inline Discover search: field + results match the dashboard width */
   .dsearch{padding:18px 28px 12px}
-  .dsearch-box,.dsearch-chips{max-width:760px;margin-left:auto;margin-right:auto}
-  .dresults{max-width:760px;margin:0 auto;padding-top:6px}
+  .dsearch-box,.dsearch-chips{max-width:1000px;margin-left:auto;margin-right:auto}
+  .dresults{max-width:1000px;margin:0 auto;padding-top:6px}
 
   /* ---- discover: a roomier two-column dashboard on wide screens ---- */
   .discover{
