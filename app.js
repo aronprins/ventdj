@@ -25,7 +25,7 @@
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="b4639b2b";
+  var VERSION="5ad67a47";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -52,6 +52,9 @@
   function parseHash(){
     var parts=location.hash.replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
     if(parts[0]==="about") return {view:"about"};
+    if(parts[0]==="discover") return {view:"discover"};
+    if(parts[0]==="faq") return {view:"collection",kind:"faq"};
+    if(parts[0]==="topic") return {view:"collection",kind:"topic",tk:parts[1],slug:parts[2]};
     if(parts[0]==="gallery") return {view:"gallery"};
     if(parts[0]==="post"){
       var id=parseInt(parts[1],10);
@@ -73,6 +76,8 @@
     if(state.view!=="lightbox") hideLb();
     if(state.view==="gallery")       showGallery();
     else if(state.view==="about")    showAbout();
+    else if(state.view==="discover") showDiscover();
+    else if(state.view==="collection") showCollection(state);
     else if(state.view==="post")     showPost(state.id);
     else if(state.view==="lightbox") showLightboxState(state);
     else                             showList();
@@ -80,11 +85,13 @@
 
   // ---------- screens ----------
   function showScreen(id){
-    ["screenList","screenPost","screenGallery","screenAbout"].forEach(function(s){
+    ["screenList","screenPost","screenGallery","screenDiscover","screenCollection","screenAbout"].forEach(function(s){
       document.getElementById(s).classList.toggle("active", s===id);
     });
     var post=(id==="screenPost");
-    var bare=(post || id==="screenAbout");      // screens with no search / filter / chips
+    var coll=(id==="screenCollection");
+    // screens with no search / filter / chips
+    var bare=(post || coll || id==="screenAbout" || id==="screenDiscover");
     // In split view the list never leaves, so the post pane keeps the list's
     // chrome (search / filter / chips) and needs no back button.
     if(isSplit() && (id==="screenList" || id==="screenPost")){
@@ -93,7 +100,7 @@
       chipsEl.hidden=false;
       return;
     }
-    backBtn.hidden=!post;
+    backBtn.hidden=!(post || coll);             // post and collection pages can go back
     searchBtn.hidden=filterBtn.hidden=bare;
     chipsEl.hidden=bare;
     if(bare) closeSearch();
@@ -112,6 +119,7 @@
     tab=t;
     $("#tabReader").classList.toggle("active",t==="reader");
     $("#tabGallery").classList.toggle("active",t==="gallery");
+    $("#tabDiscover").classList.toggle("active",t==="discover");
     $("#tabAbout").classList.toggle("active",t==="about");
   }
   function showList(){
@@ -166,9 +174,155 @@
     }).join("");
   }
 
+  // ---------- discover (FAQ · materials · people · on this day) ----------
+  var discoverEl=$("#discover"), collectionEl=$("#collection");
+  var TOPICS=null;
+  function loadTopics(cb){
+    if(TOPICS) return cb(TOPICS);
+    fetch("data/topics.json?v="+VERSION).then(function(r){return r.json()}).then(function(t){
+      TOPICS=t; cb(t);
+    }).catch(function(){ cb(null); });
+  }
+  // month/day match of posts from Mr. D's lifetime (strictly before the
+  // 1/23/2013 passing announcement, so posthumous notices never resurface).
+  var OTD_CUTOFF=new Date(2013,0,23);
+  var MONTHS=["January","February","March","April","May","June","July","August",
+              "September","October","November","December"];
+  function parseDate(d){var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d||"");return m?new Date(+m[3],+m[1]-1,+m[2]):null}
+  function onThisDay(){
+    var now=new Date(), mo=now.getMonth(), da=now.getDate();
+    var exact=[], month=[];
+    POSTS.forEach(function(p){
+      var dt=parseDate(p.date);
+      if(!dt || dt>=OTD_CUTOFF || dt.getMonth()!==mo) return;
+      month.push(p); if(dt.getDate()===da) exact.push(p);
+    });
+    var hit=exact.length?exact:month;
+    hit.sort(function(a,b){return (parseDate(b.date)-parseDate(a.date))});
+    return {posts:hit.slice(0,10), exact:exact.length>0, mo:mo, da:da};
+  }
+
+  function showDiscover(){
+    setTabUI("discover");
+    showScreen("screenDiscover");
+    appTitle.innerHTML='Discover <small>the archive</small>';
+    if(discoverEl.dataset.ready) return;        // built once; static derived data
+    loadTopics(function(t){ renderDiscover(t); discoverEl.dataset.ready="1"; });
+  }
+
+  function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
+  function postRow(p,subtitle){
+    var d=el("button","drow");
+    d.innerHTML='<span class="drow-b"><span class="drow-t"></span>'+
+      (subtitle?'<span class="drow-s"></span>':'<span class="drow-d"></span>')+
+      '</span><i class="fa-solid fa-chevron-right"></i>';
+    d.querySelector(".drow-t").textContent=p.title;
+    d.querySelector(subtitle?".drow-s":".drow-d").textContent=subtitle||p.date;
+    d.addEventListener("click",function(){navigate("#/post/"+p.id)});
+    return d;
+  }
+  function chip(label,n,hash){
+    var b=el("a","tchip",escapeHtml(label)+'<span class="tn">'+n+'</span>');
+    b.href=hash;
+    return b;
+  }
+
+  function renderDiscover(t){
+    discoverEl.innerHTML="";
+    var faqs=POSTS.filter(function(p){return p.faq});
+
+    // On this day
+    var otd=onThisDay();
+    if(otd.posts.length){
+      var sec=el("section","dsec");
+      sec.appendChild(el("h2","dsec-h",'<i class="fa-solid fa-calendar-day"></i> '+
+        (otd.exact?"On this day · "+MONTHS[otd.mo]+" "+otd.da:"This month · "+MONTHS[otd.mo])));
+      sec.appendChild(el("p","dsec-sub",otd.exact
+        ? "What Mr. D wrote on this date in years past."
+        : "From the archive this month, in Mr. D's own words."));
+      var rail=el("div","drail");
+      otd.posts.forEach(function(p){
+        var c=el("button","dcard");
+        c.innerHTML='<span class="dcard-y"></span><span class="dcard-t"></span>';
+        c.querySelector(".dcard-y").textContent=p.date;
+        c.querySelector(".dcard-t").textContent=p.title;
+        c.addEventListener("click",function(){navigate("#/post/"+p.id)});
+        rail.appendChild(c);
+      });
+      sec.appendChild(rail);
+      discoverEl.appendChild(sec);
+    }
+
+    // FAQ
+    if(faqs.length){
+      var f=el("section","dsec");
+      f.appendChild(el("h2","dsec-h",'<i class="fa-solid fa-circle-question"></i> Frequently asked'));
+      f.appendChild(el("p","dsec-sub","Real reader questions, answered by Mr. D."));
+      // a few representative samples (with a question, spread across the run)
+      var sample=faqs.filter(function(p){return p.q}), step=Math.max(1,Math.floor(sample.length/4)), picks=[];
+      for(var i=0;i<sample.length && picks.length<4;i+=step) picks.push(sample[i]);
+      picks.forEach(function(p){ f.appendChild(postRow(p,p.q)); });
+      var more=el("a","dmore",'Browse all '+faqs.length+' questions <i class="fa-solid fa-arrow-right"></i>');
+      more.href="#/faq"; f.appendChild(more);
+      discoverEl.appendChild(f);
+    }
+
+    // Materials & People clouds
+    if(t){
+      [["materials",'<i class="fa-solid fa-screwdriver-wrench"></i> How-to & materials',
+        "Browse posts by what they're made of and how.","m"],
+       ["people",'<i class="fa-solid fa-users"></i> People & figures',
+        "The vents and classic characters Mr. D wrote about.","p"]].forEach(function(spec){
+        var arr=t[spec[0]]||[]; if(!arr.length) return;
+        var s=el("section","dsec");
+        s.appendChild(el("h2","dsec-h",spec[1]));
+        s.appendChild(el("p","dsec-sub",spec[2]));
+        var cloud=el("div","tcloud");
+        arr.forEach(function(it){ cloud.appendChild(chip(it.label,it.n,"#/topic/"+spec[3]+"/"+it.slug)); });
+        s.appendChild(cloud);
+        discoverEl.appendChild(s);
+      });
+    }
+  }
+
+  // ---------- collection page (FAQ list / a single topic) ----------
+  function showCollection(state){
+    setTabUI("discover");
+    showScreen("screenCollection");
+    collectionEl.scrollTop=0;
+    if(state.kind==="faq"){
+      var faqs=POSTS.filter(function(p){return p.faq});
+      appTitle.innerHTML='FAQ <small>'+faqs.length+' questions</small>';
+      renderCollection("Questions &amp; answers with Mr. D",
+        '<i class="fa-solid fa-circle-question"></i>', faqs, true);
+    } else {
+      loadTopics(function(t){
+        var kind=state.tk==="p"?"people":"materials";
+        var arr=(t&&t[kind])||[], topic=null;
+        for(var i=0;i<arr.length;i++) if(arr[i].slug===state.slug){topic=arr[i];break}
+        if(!topic){ collectionEl.innerHTML='<div class="empty">Topic not found.</div>'; return; }
+        var posts=topic.ids.map(function(id){return BYID[id]}).filter(Boolean)
+                    .sort(function(a,b){return a.id-b.id});
+        appTitle.innerHTML=escapeHtml(topic.label)+' <small>'+posts.length+' posts</small>';
+        var icon=kind==="people"?'<i class="fa-solid fa-user"></i>':'<i class="fa-solid fa-screwdriver-wrench"></i>';
+        renderCollection(escapeHtml(topic.label), icon, posts, false);
+      });
+    }
+  }
+  function renderCollection(title,icon,posts,faq){
+    collectionEl.innerHTML="";
+    var head=el("div","chead",icon+" <span>"+title+"</span><span class=\"cn\">"+posts.length+"</span>");
+    collectionEl.appendChild(head);
+    if(!posts.length){ collectionEl.appendChild(el("div","empty",null)); collectionEl.lastChild.textContent="Nothing here yet."; return; }
+    var frag=document.createDocumentFragment();
+    posts.forEach(function(p){ frag.appendChild(postRow(p, faq?(p.q||""):"")); });
+    var wrap=el("div","clist"); wrap.appendChild(frag); collectionEl.appendChild(wrap);
+  }
+
   // bottom tabs
   $("#tabReader").addEventListener("click",function(){navigate("#/")});
   $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
+  $("#tabDiscover").addEventListener("click",function(){navigate("#/discover")});
   $("#tabAbout").addEventListener("click",function(){navigate("#/about")});
   // topbar back = browser back
   backBtn.addEventListener("click",function(){history.back()});
@@ -304,9 +458,10 @@
       var idx=FILTERED.indexOf(p);
       var prev=idx>0?FILTERED[idx-1]:null, next=idx>=0&&idx<FILTERED.length-1?FILTERED[idx+1]:null;
       viewerEl.innerHTML='<article class="post"><h1></h1><p class="date"></p>'+
-        '<div class="content">'+body+'</div></article><div class="navbtns"></div>';
+        '<div class="content">'+body+'</div></article><div class="related"></div><div class="navbtns"></div>';
       viewerEl.querySelector("h1").textContent=p.title;
       viewerEl.querySelector(".date").textContent="#"+String(p.id).padStart(4,"0")+" · "+p.date;
+      renderRelated(p);
       var nb=viewerEl.querySelector(".navbtns");
       nb.appendChild(prev?mkBtn('<i class="fa-solid fa-chevron-left"></i> Prev',prev.id):spacer());
       nb.appendChild(next?mkBtn('Next <i class="fa-solid fa-chevron-right"></i>',next.id):spacer());
@@ -322,6 +477,23 @@
       viewerEl.scrollTop=0;
     });
   }
+  // Related posts (precomputed TF-IDF neighbours) under the post body.
+  function renderRelated(p){
+    var box=viewerEl.querySelector(".related"); if(!box) return;
+    var rel=(p.rel||[]).map(function(id){return BYID[id]}).filter(Boolean);
+    if(!rel.length){ box.remove(); return; }
+    box.innerHTML='<div class="related-h">Related posts</div>';
+    rel.forEach(function(r){
+      var a=document.createElement("button");
+      a.className="related-i";
+      a.innerHTML='<span class="related-t"></span><span class="related-d"></span>';
+      a.querySelector(".related-t").textContent=r.title;
+      a.querySelector(".related-d").textContent=r.date;
+      a.addEventListener("click",function(){replaceNav("#/post/"+r.id)});
+      box.appendChild(a);
+    });
+  }
+
   // Prev/Next replaces the current history entry so "back" still leaves reading.
   function mkBtn(label,id){var b=document.createElement("button");b.className="btn";
     b.innerHTML=label;b.addEventListener("click",function(){replaceNav("#/post/"+id)});return b}
