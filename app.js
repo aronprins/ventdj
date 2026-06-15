@@ -71,7 +71,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="c6e101d7";
+  var VERSION="9840c3ff";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -347,7 +347,7 @@
       [["how-to","materials",'<i class="fa-solid fa-screwdriver-wrench"></i> How-to & materials',
         "Browse posts by what they're made of and how."],
        ["people","people",'<i class="fa-solid fa-users"></i> People & figures',
-        "The vents and classic characters Mr. D wrote about."]].forEach(function(spec){
+        "The people and classic characters Mr. D wrote about."]].forEach(function(spec){
         var arr=t[spec[1]]||[]; if(!arr.length) return;
         var s=el("section","dsec");
         s.appendChild(el("h2","dsec-h",spec[2]));
