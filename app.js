@@ -25,7 +25,7 @@
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="5ad67a47";
+  var VERSION="2ab145da";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -261,7 +261,9 @@
       // a few representative samples (with a question, spread across the run)
       var sample=faqs.filter(function(p){return p.q}), step=Math.max(1,Math.floor(sample.length/4)), picks=[];
       for(var i=0;i<sample.length && picks.length<4;i+=step) picks.push(sample[i]);
-      picks.forEach(function(p){ f.appendChild(postRow(p,p.q)); });
+      var rows=el("div","drows");
+      picks.forEach(function(p){ rows.appendChild(postRow(p,p.q)); });
+      f.appendChild(rows);
       var more=el("a","dmore",'Browse all '+faqs.length+' questions <i class="fa-solid fa-arrow-right"></i>');
       more.href="#/faq"; f.appendChild(more);
       discoverEl.appendChild(f);
@@ -286,15 +288,39 @@
   }
 
   // ---------- collection page (FAQ list / a single topic) ----------
+  // FAQ buckets — keep slugs/labels in sync with FAQ_CATS in build_index.py.
+  var FAQCATS=[["","All"],["building","Building"],["repair","Repair & care"],
+    ["mechanics","Eyes & mechanics"],["voice","Voice & technique"],
+    ["performing","Performing"],["identify","ID & value"],
+    ["products","Course & store"],["other","Other"]];
+  var faqCat="";
+
+  // A reader-style list row (same markup/UX as the Reader list) for collections.
+  function collItem(p,qline){
+    var d=el("div","item"); d.dataset.id=p.id;
+    var h='<div class="body"><div class="t"></div>'+
+      (qline?'<div class="q"></div>':'')+
+      '<div class="dt"><span class="d"></span></div></div>'+
+      '<span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
+    d.innerHTML=h;
+    d.querySelector(".t").textContent=p.title;
+    if(qline) d.querySelector(".q").textContent=qline;
+    d.querySelector(".dt .d").textContent=p.date;
+    if(p.images.length){
+      var badge=el("span","imgs",'<i class="fa-solid fa-image"></i>'+p.images.length);
+      d.querySelector(".dt").appendChild(badge);
+    }
+    d.addEventListener("click",function(){navigate("#/post/"+p.id)});
+    return d;
+  }
+
   function showCollection(state){
     setTabUI("discover");
     showScreen("screenCollection");
     collectionEl.scrollTop=0;
     if(state.kind==="faq"){
-      var faqs=POSTS.filter(function(p){return p.faq});
-      appTitle.innerHTML='FAQ <small>'+faqs.length+' questions</small>';
-      renderCollection("Questions &amp; answers with Mr. D",
-        '<i class="fa-solid fa-circle-question"></i>', faqs, true);
+      faqCat="";
+      renderFaq();
     } else {
       loadTopics(function(t){
         var kind=state.tk==="p"?"people":"materials";
@@ -305,18 +331,46 @@
                     .sort(function(a,b){return a.id-b.id});
         appTitle.innerHTML=escapeHtml(topic.label)+' <small>'+posts.length+' posts</small>';
         var icon=kind==="people"?'<i class="fa-solid fa-user"></i>':'<i class="fa-solid fa-screwdriver-wrench"></i>';
-        renderCollection(escapeHtml(topic.label), icon, posts, false);
+        collectionEl.innerHTML="";
+        collectionEl.appendChild(el("div","chead",icon+' <span>'+escapeHtml(topic.label)+
+          '</span><span class="cn">'+posts.length+'</span>'));
+        var list=el("div","list");
+        posts.forEach(function(p){ list.appendChild(collItem(p,"")); });
+        collectionEl.appendChild(list);
       });
     }
   }
-  function renderCollection(title,icon,posts,faq){
+
+  // FAQ index — reader-style list with its own category chip bar.
+  function renderFaq(){
+    var faqs=POSTS.filter(function(p){return p.faq});
+    appTitle.innerHTML='FAQ <small>'+faqs.length+' questions</small>';
     collectionEl.innerHTML="";
-    var head=el("div","chead",icon+" <span>"+title+"</span><span class=\"cn\">"+posts.length+"</span>");
-    collectionEl.appendChild(head);
-    if(!posts.length){ collectionEl.appendChild(el("div","empty",null)); collectionEl.lastChild.textContent="Nothing here yet."; return; }
+    var chips=el("div","chips faq-chips");
+    FAQCATS.forEach(function(c){
+      var n=c[0]?faqs.filter(function(p){return p.fcat===c[0]}).length:faqs.length;
+      if(c[0] && !n) return;                       // hide empty buckets
+      var b=el("button","chip"+(c[0]===faqCat?" active":""),escapeHtml(c[1]));
+      b.addEventListener("click",function(){
+        if(faqCat===c[0]) return;
+        faqCat=c[0];
+        Array.prototype.forEach.call(chips.children,function(x){x.classList.toggle("active",x===b)});
+        fillFaq();
+      });
+      chips.appendChild(b);
+    });
+    collectionEl.appendChild(chips);
+    collectionEl.appendChild(el("div","list",null)).id="faqList";
+    fillFaq();
+  }
+  function fillFaq(){
+    var list=document.getElementById("faqList"); if(!list) return;
+    var faqs=POSTS.filter(function(p){return p.faq && (!faqCat || p.fcat===faqCat)});
+    list.innerHTML="";
+    if(!faqs.length){ list.appendChild(el("div","empty","No questions in this category.")); return; }
     var frag=document.createDocumentFragment();
-    posts.forEach(function(p){ frag.appendChild(postRow(p, faq?(p.q||""):"")); });
-    var wrap=el("div","clist"); wrap.appendChild(frag); collectionEl.appendChild(wrap);
+    faqs.forEach(function(p){ frag.appendChild(collItem(p,p.q||"")); });
+    list.appendChild(frag);
   }
 
   // bottom tabs

@@ -108,6 +108,27 @@ PEOPLE = [
 ]
 TOPIC_MIN = 5   # drop terms mentioned in fewer than this many posts
 
+# FAQ-specific buckets. The global `cat` is useless for FAQ (almost every Q&A
+# is "qa"), so each FAQ gets its own `fcat` by scoring keyword hits over the
+# question + title. Keep these slugs/labels in sync with FAQCATS in app.js.
+FAQ_CATS = [
+    ("building",   "Building",       r"\b(make|makes|making|build|building|carve|carving|scratch|teeth|basswood|wood ?dough|papier|mache|art foam|foam|mold|molds|sculpt|sculpting|create)\b"),
+    ("repair",     "Repair & care",  r"\b(repair|repairs|restore|restoration|restoring|fix|fixing|broken|crack|cracked|replace|replacement|rubber ?band|repaint|touch.?up|peeling|chipped|loose|refurbish|clean|cleaning|humidity|aging)\b"),
+    ("mechanics",  "Eyes & mechanics", r"\b(moving eyes?|eye mech\w*|self.?center\w*|eyebrows?|winker|winkers|wiggl\w*|mouth ?stick|head ?stick|mechanism|mechanics|slot ?head|automatic eyes?|control stick|spring|springs)\b"),
+    ("voice",      "Voice & technique", r"\b(voice|lips?|labial|throat|breath\w*|distant voice|near voice|practice|practise|vent position|technique|tongue|projection|sound\w*|resonan\w*)\b"),
+    ("performing", "Performing",     r"\b(audience|show|shows|perform\w*|stage|gig|gigs|routine|routines|script|scripts|gag|gags|character|booking|fee|fees|nervous|walk.?around|banquet|comedy|dialogue|venue)\b"),
+    ("identify",   "ID & value",     r"\b(who made|identif\w*|builder|who built|value|worth|appraise|appraisal|collector|collectible|insull|lovik|juro|garage sale|antique|ebay|how old|maker|original|vintage)\b"),
+    ("products",   "Course & store", r"\b(course|lessons?|book|books|dvd|catalog\w*|coin|coins|sticker|stickers|case|cases|product|order|orders|price|cost|charge|buy|buying|purchase|sell|selling|closeout|kindle|shipping)\b"),
+]
+FAQ_CATS_C = [(slug, re.compile(rx, re.I)) for slug, _, rx in FAQ_CATS]
+def classify_faq(text):
+    best, bestn = "other", 0
+    for slug, rx in FAQ_CATS_C:
+        n = len(rx.findall(text))
+        if n > bestn:
+            bestn, best = n, slug
+    return best
+
 STOP = set("""the and for you your with that this have are was not but his her she him our out who all any can
 had has from they them their what when where which while will would there here been being into over more most
 some such than then thee thy our ours about above after again against because before below between both down
@@ -169,6 +190,7 @@ for fn in sorted(os.listdir(POSTS_DIR)):
     q, is_q = extract_question(ftext, title)
     if is_q:
         rec["faq"] = 1
+        rec["fcat"] = classify_faq(title + " " + q)
         if q:
             rec["q"] = q[:240]
     posts.append(rec)
@@ -249,6 +271,8 @@ faq_n = sum(1 for p in posts if p.get("faq"))
 rel_n = sum(1 for p in posts if p.get("rel"))
 print(f"wrote {OUT}: {len(posts)} posts, {total_imgs} image refs, {os.path.getsize(OUT)//1024} KB")
 print(f"  FAQ posts: {faq_n}  ·  posts with related links: {rel_n}")
+fdist = collections.Counter(p.get("fcat") for p in posts if p.get("faq"))
+print("  FAQ categories:", dict(sorted(fdist.items(), key=lambda x: -x[1])))
 print(f"wrote {TOPICS_OUT}: {len(topics['materials'])} materials, {len(topics['people'])} people/figures")
 for k in ("materials", "people"):
     print(f"  {k}: " + ", ".join(f"{t['label']}({t['n']})" for t in topics[k]))

@@ -119,6 +119,8 @@ a{color:var(--link);text-decoration:none}
 .list .item .body{min-width:0;flex:1}
 .list .item .t{font-weight:600;font-size:15px;line-height:1.3;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.list .item .q{color:var(--muted);font-size:12.5px;line-height:1.4;margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .list .item .dt{color:var(--muted);font-size:12px;margin-top:3px;
   display:flex;align-items:center;gap:7px}
 .list .item .imgs{display:inline-flex;align-items:center;gap:4px;
@@ -186,9 +188,11 @@ article.post .content a{word-break:break-word}
 .dcard-t{font-size:13.5px;font-weight:600;line-height:1.32;color:var(--text);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 
-/* tappable rows shared by discover samples + collection lists */
-.drow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;cursor:pointer;
-  border:0;background:none;padding:12px 0;border-bottom:1px solid var(--line);color:var(--text)}
+/* tappable rows for the discover FAQ samples. Negative margins let the hover/
+   active tint bleed to the section edge while the text stays aligned. */
+.drow{display:flex;gap:12px;align-items:center;width:auto;text-align:left;cursor:pointer;
+  border:0;background:none;padding:12px 14px;margin:0 -14px;
+  border-bottom:1px solid var(--line);color:var(--text)}
 .drow:active{background:var(--soft)}
 .drow-b{flex:1;min-width:0}
 .drow-t{display:block;font-weight:600;font-size:14.5px;line-height:1.3}
@@ -209,10 +213,12 @@ article.post .content a{word-break:break-word}
 .tchip .tn{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:11px;
   line-height:1;padding:3px 7px;border-radius:999px}
 
-/* collection page (FAQ list / single topic) */
-.collection{padding:0 16px calc(34px + var(--safe-b))}
+/* collection page (FAQ list / single topic) — full-bleed, reader-style rows */
+.collection{padding:0 0 calc(34px + var(--safe-b))}
+/* FAQ category chips reuse the reader chip bar, pinned while the list scrolls */
+.faq-chips{position:sticky;top:0;z-index:3}
 .chead{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;
-  padding:16px 0 12px;border-bottom:1px solid var(--line);position:sticky;top:0;
+  padding:16px 16px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;
   background:var(--app);z-index:2}
 .chead i{color:var(--accent)}
 .chead>span:first-of-type{flex:1;min-width:0}
@@ -313,7 +319,35 @@ article.post .content a{word-break:break-word}
   /* reader & about: a comfortable centered measure rather than edge-to-edge */
   .viewer{max-width:720px;margin:0 auto;padding:26px 28px 48px}
   article.post h1{font-size:26px}
-  .about,.discover,.collection{max-width:720px;margin:0 auto}
+  .about{max-width:720px;margin:0 auto}
+
+  /* collection (FAQ / topic) — wider, two-column reader-style list */
+  .collection{max-width:900px;margin:0 auto}
+  #screenCollection .list{display:grid;grid-template-columns:1fr 1fr;column-gap:30px}
+  #screenCollection .list .empty{grid-column:1 / -1}
+
+  /* ---- discover: a roomier two-column dashboard on wide screens ---- */
+  .discover{
+    max-width:1000px;margin:0 auto;padding:26px 28px 56px;
+    display:grid;grid-template-columns:1fr 1fr;align-items:start;gap:20px;
+  }
+  .dsec{margin:0;background:var(--cream);border:1px solid var(--line);
+    border-radius:16px;padding:20px 22px 22px}
+  .dsec:first-child{margin:0}
+  /* On this day + Frequently asked run full width; the two clouds sit side by side */
+  .discover>.dsec:nth-child(1),
+  .discover>.dsec:nth-child(2){grid-column:1 / -1}
+  /* the date rail wraps into a tidy grid instead of scrolling horizontally */
+  .drail{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));
+    overflow:visible;margin:0;padding:2px 0 0}
+  .dcard{flex:none}
+  /* FAQ samples go two-up */
+  .drows{display:grid;grid-template-columns:1fr 1fr;gap:0 30px}
+  .drows .drow{padding:14px 12px;margin:0}
+
+  /* desktop hover affordances for the new surfaces */
+  .dcard:hover,.tchip:hover{filter:brightness(.97)}
+  .drow:hover,.related-i:hover{background:var(--soft)}
 
   /* ---- split view: the Reader tab shows the list and the post together ---- */
   .app:has(#tabReader.active) .screens{
