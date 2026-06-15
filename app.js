@@ -71,7 +71,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="02aa282e";
+  var VERSION="9af01cba";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -277,7 +277,7 @@
   function showDiscover(){
     setTabUI("discover");
     showScreen("screenDiscover");
-    appTitle.innerHTML='Discover <small>the archive</small>';
+    appTitle.innerHTML=BRAND+' <small>Highlights &amp; topics</small>';
     if(discoverEl.dataset.ready) return;        // built once; static derived data
     loadTopics(function(t){ renderDiscover(t); discoverEl.dataset.ready="1"; });
   }
