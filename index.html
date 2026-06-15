@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#85251a">
 <title>Mr. D's Ventriloquist Journal</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="app.css?v=387e15fc">
+<link rel="stylesheet" href="app.css?v=d2e70d71">
 </head>
 <body>
 
@@ -39,7 +39,16 @@
       <div id="sentinel" class="sentinel"></div>
     </section>
     <section id="screenDiscover" class="screen active">
+      <div class="dsearch">
+        <div class="dsearch-box">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input id="dsearch" type="search" placeholder="Search the journal…" autocomplete="off">
+          <button id="dsearchClear" class="dsearch-clear" hidden aria-label="Clear search"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="dsearchChips" class="dsearch-chips"></div>
+      </div>
       <div id="discover" class="discover"><div class="empty">Loading…</div></div>
+      <div id="dresults" class="dresults" hidden></div>
     </section>
     <section id="screenAbout" class="screen">
       <div id="about" class="about"></div>
@@ -93,6 +102,6 @@
   <div id="lbCap" class="lb-cap"></div>
 </div>
 
-<script src="app.js?v=387e15fc"></script>
+<script src="app.js?v=d2e70d71"></script>
 </body>
 </html>

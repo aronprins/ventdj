@@ -175,8 +175,33 @@ article.post .content a{word-break:break-word}
 .grid figure:active img{opacity:.8}
 .sentinel{padding:18px;text-align:center;color:var(--muted);font-size:12px}
 
+/* inline search on the Discover home */
+.dsearch{position:sticky;top:0;z-index:5;background:var(--app);
+  padding:12px 16px 10px;border-bottom:1px solid var(--line)}
+.dsearch-box{display:flex;align-items:center;gap:9px;background:var(--soft);
+  border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.dsearch-box>i{color:var(--muted);font-size:14px}
+.dsearch-box input{flex:1;min-width:0;border:0;background:none;font-size:15px;color:var(--text);outline:none}
+.dsearch-clear{border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px}
+.dsearch-clear[hidden]{display:none}
+.dsearch-chips{display:flex;gap:8px;overflow-x:auto;padding-top:10px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.dsearch-chips::-webkit-scrollbar{display:none}
+.dsearch-chips[hidden]{display:none}
+.schip{flex:none;white-space:nowrap;border:1px solid var(--line);background:var(--app);
+  color:var(--text);font-size:12.5px;padding:6px 12px;border-radius:999px;cursor:pointer}
+.schip.recent{color:var(--muted)}
+.schip.recent i{font-size:10px;margin-right:1px}
+.schip:active{background:var(--soft)}
+/* discover search results */
+.dresults{padding:0 0 calc(34px + var(--safe-b))}
+.dresults[hidden]{display:none}
+.dres-h{padding:14px 16px 6px;font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em}
+
 /* discover hub */
 .discover{padding:8px 16px calc(34px + var(--safe-b))}
+.discover[hidden]{display:none}
 .dsec{margin:22px 0 4px}
 .dsec:first-child{margin-top:14px}
 .dsec-h{font-size:14px;font-weight:700;color:var(--accent);margin:0 0 3px;
@@ -317,6 +342,11 @@ article.post .content a{word-break:break-word}
   article.post h1{font-size:26px}
   .about{max-width:720px;margin:0 auto}
 
+
+  /* inline Discover search: a centered field + centered results */
+  .dsearch{padding:18px 28px 12px}
+  .dsearch-box,.dsearch-chips{max-width:760px;margin-left:auto;margin-right:auto}
+  .dresults{max-width:760px;margin:0 auto;padding-top:6px}
 
   /* ---- discover: a roomier two-column dashboard on wide screens ---- */
   .discover{

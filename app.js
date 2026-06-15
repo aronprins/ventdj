@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="387e15fc";
+  var VERSION="d2e70d71";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -286,6 +286,8 @@
     setTabUI("discover");
     showScreen("screenDiscover");
     appTitle.innerHTML=BRAND+' <small>Highlights &amp; topics</small>';
+    renderDSearchChips();
+    runDSearch();                               // hub when empty, results if a query persists
     if(discoverEl.dataset.ready) return;        // built once; static derived data
     loadTopics(function(t){ renderDiscover(t); discoverEl.dataset.ready="1"; });
   }
@@ -306,6 +308,61 @@
     b.href=hash;
     return b;
   }
+
+  // ---------- inline search on the Discover home ----------
+  var dSearchEl=$("#dsearch"), dResults=$("#dresults"), dChips=$("#dsearchChips"), dClear=$("#dsearchClear");
+  var SUGGESTED=["moving eyes","basswood","rubber band","lip control","Maher course",
+                 "Charlie McCarthy","stage fright","restoration","wood dough","eyebrows"];
+  function recentSearches(){ try{return JSON.parse(localStorage.getItem("vdj_recent")||"[]")}catch(e){return []} }
+  function pushRecent(q){
+    q=(q||"").trim(); if(q.length<2) return;
+    var r=recentSearches().filter(function(x){return x.toLowerCase()!==q.toLowerCase()});
+    r.unshift(q); try{localStorage.setItem("vdj_recent",JSON.stringify(r.slice(0,6)))}catch(e){}
+  }
+  function renderDSearchChips(){
+    dChips.innerHTML="";
+    var recent=recentSearches();
+    function add(q,isRecent){
+      var b=el("button","schip"+(isRecent?" recent":""),
+        (isRecent?'<i class="fa-solid fa-clock-rotate-left"></i> ':'')+escapeHtml(q));
+      b.addEventListener("click",function(){ dSearchEl.value=q; runDSearch(); dSearchEl.focus(); });
+      dChips.appendChild(b);
+    }
+    recent.forEach(function(q){ add(q,true); });
+    SUGGESTED.forEach(function(q){ if(recent.indexOf(q)<0) add(q,false); });
+  }
+  function dItem(p,terms,q){
+    var d=el("div","item"); d.dataset.id=p.id;
+    d.innerHTML='<div class="body"><div class="t"></div><div class="q"></div>'+
+      '<div class="dt"><span class="d"></span></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
+    d.querySelector(".t").innerHTML=highlight(p.title,terms);
+    d.querySelector(".q").innerHTML=snippet(p.text||"",terms);
+    d.querySelector(".dt .d").textContent=p.date;
+    if(p.images.length){var b=el("span","imgs",'<i class="fa-solid fa-image"></i>'+p.images.length);d.querySelector(".dt").appendChild(b);}
+    d.addEventListener("click",function(){ pushRecent(q); activeTerms=terms; navigate("#/post/"+p.id); });
+    return d;
+  }
+  function runDSearch(){
+    var q=dSearchEl.value.trim();
+    dClear.hidden=!q;
+    if(!q){ dResults.hidden=true; dResults.innerHTML=""; discoverEl.hidden=false; dChips.hidden=false; return; }
+    discoverEl.hidden=true; dChips.hidden=true; dResults.hidden=false;
+    var r=searchArchive(q);
+    if(!r || !r.posts.length){
+      dResults.innerHTML='<div class="empty">No matches for &ldquo;'+escapeHtml(q)+'&rdquo;.</div>'; return;
+    }
+    dResults.innerHTML='<div class="dres-h">'+r.posts.length+' result'+(r.posts.length!==1?"s":"")+'</div>';
+    var list=el("div","list");
+    r.posts.slice(0,80).forEach(function(p){ list.appendChild(dItem(p,r.terms,q)); });
+    dResults.appendChild(list);
+  }
+  var dDeb;
+  dSearchEl.addEventListener("input",function(){clearTimeout(dDeb);dDeb=setTimeout(runDSearch,180)});
+  dSearchEl.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ pushRecent(dSearchEl.value); renderDSearchChips(); }
+    else if(e.key==="Escape"){ dSearchEl.value=""; runDSearch(); }
+  });
+  dClear.addEventListener("click",function(){ dSearchEl.value=""; runDSearch(); renderDSearchChips(); dSearchEl.focus(); });
 
   function renderDiscover(t){
     discoverEl.innerHTML="";
@@ -377,7 +434,7 @@
     ["products","Course & store"],["other","Other"]];
 
   // bottom tabs
-  $("#tabDiscover").addEventListener("click",function(){navigate("#/")});
+  $("#tabDiscover").addEventListener("click",function(){ dSearchEl.value=""; navigate("#/"); });
   $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
   $("#tabReader").addEventListener("click",function(){navigate("#/journal")});
   $("#tabAbout").addEventListener("click",function(){navigate("#/about")});
@@ -407,6 +464,13 @@
       if(t.length>=2 && !seen[t]){ seen[t]=1; out.push(t); }
     });
     return out.length?out:null;
+  }
+  function searchArchive(q){             // ranked search over the whole archive
+    var terms=searchTerms(q); if(!terms) return null;
+    var res=[];
+    POSTS.forEach(function(p){var s=scorePost(p,terms); if(s>0) res.push([s,p]);});
+    res.sort(function(a,b){return b[0]-a[0] || a[1].id-b[1].id});
+    return {terms:terms, posts:res.map(function(r){return r[1]})};
   }
   function scorePost(p,terms){
     var title=norm(p.title), text=norm(p.text), score=0;
@@ -489,9 +553,9 @@
   // ---------- search & filter UI ----------
   function openSearch(){searchbar.classList.add("open");searchEl.focus()}
   function closeSearch(){searchbar.classList.remove("open")}
-  // Search spans the whole archive, so searching from Discover drops into the Journal.
+  // On Discover the search lives inline on the page; elsewhere use the appbar overlay.
   searchBtn.addEventListener("click",function(){
-    if(parseHash().view==="discover") navigate("#/journal");
+    if(parseHash().view==="discover"){ $("#screenDiscover").scrollTop=0; dSearchEl.focus(); return; }
     openSearch();
   });
   $("#searchClose").addEventListener("click",function(){
