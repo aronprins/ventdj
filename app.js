@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="ce226006";
+  var VERSION="9e40a2b8";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -155,7 +155,8 @@
       return;
     }
     backBtn.hidden=!(post || derived);
-    searchBtn.hidden=(post || id==="screenAbout");   // search also available on Discover
+    // search shows on lists/gallery/discover, and on a post while a search is active (to clear it)
+    searchBtn.hidden=(id==="screenAbout") || (post && !activeTerms);
     filterBtn.hidden=bare;                            // year/sort only on a list or gallery
     chipsEl.hidden=bare;
     if(bare) closeSearch();
@@ -339,8 +340,17 @@
     d.querySelector(".q").innerHTML=snippet(p.text||"",terms);
     d.querySelector(".dt .d").textContent=p.date;
     if(p.images.length){var b=el("span","imgs",'<i class="fa-solid fa-image"></i>'+p.images.length);d.querySelector(".dt").appendChild(b);}
-    d.addEventListener("click",function(){ pushRecent(q); activeTerms=terms; navigate("#/post/"+p.id); });
+    d.addEventListener("click",function(){ pushRecent(q); enterJournalSearch(q,p.id); });
     return d;
+  }
+  // Hand the inline query to the Journal's appbar search and open the post, so
+  // the query lives in the topbar (clearable) and the rail shows the results.
+  function enterJournalSearch(q,id){
+    searchEl.value=q;
+    mode="archive"; renderChips();
+    apply();                       // sets activeTerms + FILTERED (ranked results)
+    updateCount();
+    navigate("#/post/"+id);
   }
   function runDSearch(){
     var q=dSearchEl.value.trim();
@@ -511,6 +521,11 @@
       node.parentNode.replaceChild(span,node);
     });
   }
+  // Unwrap the <mark>s in the open post (when a search is cleared).
+  function clearHighlights(){
+    var ms=viewerEl.querySelectorAll(".content mark");
+    Array.prototype.forEach.call(ms,function(m){m.parentNode.replaceChild(document.createTextNode(m.textContent),m)});
+  }
 
   // ---------- filtering ----------
   function apply(){
@@ -537,6 +552,7 @@
       else if(sort==="az") FILTERED.sort(function(a,b){return a.title.localeCompare(b.title)});
       else FILTERED.sort(function(a,b){return a.id-b.id});
     }
+    if(!activeTerms) clearHighlights();   // dropping the query unmarks the open post
     listStale=galleryStale=true; renderedPostId=null;
     var v=parseHash().view;
     if(v==="gallery"){renderGallery(true);galleryStale=false}
@@ -644,7 +660,17 @@
       it.classList.toggle("selected",on);
       if(on) hit=it;
     });
-    if(hit && hit.scrollIntoView) hit.scrollIntoView({block:"nearest"});
+    if(!hit) return;
+    // Wait for the split layout to settle, then centre the row in the rail —
+    // but only when it's actually off-screen, so clicking a visible row or
+    // paging Prev/Next doesn't jump the list around.
+    requestAnimationFrame(function(){
+      var c=listEl.parentNode;            // #screenList (the scroll container)
+      if(!c || !c.getBoundingClientRect) return;
+      var cr=c.getBoundingClientRect(), hr=hit.getBoundingClientRect();
+      if(hr.top<cr.top || hr.bottom>cr.bottom)
+        c.scrollTop += (hr.top-cr.top) - (c.clientHeight-hr.height)/2;
+    });
   }
 
   function showPost(state){
