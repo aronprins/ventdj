@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="97e4aff3";
+  var VERSION="d107188e";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives

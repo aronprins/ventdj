@@ -323,9 +323,12 @@ article.post .content a{word-break:break-word}
   .dsec{margin:0;background:var(--cream);border:1px solid var(--line);
     border-radius:16px;padding:20px 22px 22px}
   .dsec:first-child{margin:0}
-  /* On this day + Frequently asked run full width; the two clouds sit side by side */
+  /* On this day + Frequently asked run full width. Below them, How-to (3) and
+     Contributors (4) stack in the left column; People & figures (5) sits to the
+     right of both, spanning their two rows. */
   .discover>.dsec:nth-child(1),
   .discover>.dsec:nth-child(2){grid-column:1 / -1}
+  .discover>.dsec:nth-child(5){grid-column:2;grid-row:3 / span 2}
   /* the date rail wraps into a tidy grid instead of scrolling horizontally */
   .drail{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));
     overflow:visible;margin:0;padding:2px 0 0}
