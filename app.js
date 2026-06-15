@@ -20,10 +20,10 @@
       chipsEl=$("#chips"), aboutEl=$("#about"), galleryScreen=$("#screenGallery");
 
   // The reader is mode-aware: one list/detail/chips machinery drives the full
-  // archive and three derived "readers" (faq, materials, people), each with its
+  // archive and three derived "readers" (faq, how-to, people), each with its
   // own chip set and post subset. `mode` selects which; each remembers its chip.
   var mode="archive";
-  var catByMode={archive:"",faq:"",materials:"",people:""};
+  var catByMode={archive:"",faq:"","how-to":"",people:""};
   function curCat(){return catByMode[mode]}
   var FAQPOSTS=[];                 // POSTS.filter(faq), filled on load
   var TIDX=null;                   // {materials,people} -> {chips,idset,base} from topics.json
@@ -40,7 +40,7 @@
     m=m||mode;
     if(m==="faq") return {tab:"discover",route:"#/faq",base:function(){return FAQPOSTS},
       chips:function(){return FAQCATS},match:function(p,c){return p.fcat===c}};
-    if(m==="materials"||m==="people"){ var x=TIDX&&TIDX[m];
+    if(m==="how-to"||m==="people"){ var x=TIDX&&TIDX[m];
       return {tab:"discover",route:"#/"+m,base:function(){return x?x.base:[]},
         chips:function(){return x?x.chips:[["","All"]]},
         match:function(p,c){return !!(x&&x.idset[c]&&x.idset[c][p.id])}}; }
@@ -50,27 +50,28 @@
   function postHash(m,id){return (m==="archive"?"#/post/":"#/"+m+"/post/")+id}
   function postRoute(id){return postHash(mode,id)}
   function photoRoute(id,f){return postHash(mode,id)+"/photo/"+encodeURIComponent(f)}
-  // Build the materials/people indexes (chips + id sets + union base) once.
+  // Build the how-to/people indexes (chips + id sets + union base) once. The
+  // "how-to" reader is backed by the topics.json "materials" array.
   function buildTIDX(t){
     if(TIDX||!t) return;
     TIDX={};
-    ["materials","people"].forEach(function(kind){
-      var arr=t[kind]||[],chips=[["","All"]],idset={},union={};
+    [["how-to","materials"],["people","people"]].forEach(function(pair){
+      var mkey=pair[0], arr=t[pair[1]]||[], chips=[["","All"]], idset={}, union={};
       arr.forEach(function(it){ chips.push([it.slug,it.label]); var s={};
         it.ids.forEach(function(id){s[id]=1;union[id]=1}); idset[it.slug]=s; });
       var base=Object.keys(union).map(function(id){return BYID[+id]}).filter(Boolean)
                 .sort(function(a,b){return a.id-b.id});
-      TIDX[kind]={chips:chips,idset:idset,base:base};
+      TIDX[mkey]={chips:chips,idset:idset,base:base};
     });
   }
-  // materials/people need topics.json before they can render; others are ready.
+  // how-to/people need topics.json before they can render; others are ready.
   function ensureMode(m,cb){
-    if((m==="materials"||m==="people")&&!TIDX) loadTopics(function(t){buildTIDX(t);cb()});
+    if((m==="how-to"||m==="people")&&!TIDX) loadTopics(function(t){buildTIDX(t);cb()});
     else cb();
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="419e533c";
+  var VERSION="db3bcf0c";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -95,14 +96,14 @@
   // #/post/<id>              -> post
   // #/photo/<file>           -> lightbox (gallery context)
   // #/post/<id>/photo/<file> -> lightbox (in-post context)
-  // Reader-like routes can carry a mode prefix (faq/materials/people) and an
-  // optional category slug, e.g. #/materials/basswood or #/faq/post/50/photo/x.
+  // Reader-like routes can carry a mode prefix (faq/how-to/people) and an
+  // optional category slug, e.g. #/how-to/basswood or #/faq/post/50/photo/x.
   function parseHash(){
     var parts=location.hash.replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
     if(parts[0]==="about") return {view:"about"};
     if(parts[0]==="discover") return {view:"discover"};
     var mode="archive";
-    if(parts[0]==="faq"||parts[0]==="materials"||parts[0]==="people"){ mode=parts[0]; parts=parts.slice(1); }
+    if(parts[0]==="faq"||parts[0]==="how-to"||parts[0]==="people"){ mode=parts[0]; parts=parts.slice(1); }
     if(mode==="archive" && parts[0]==="gallery") return {view:"gallery"};
     if(mode==="archive" && parts[0]==="photo") return {view:"lightbox",ctx:"gallery",mode:mode,f:parts[1]};
     if(parts[0]==="post"){
@@ -138,15 +139,18 @@
     var post=(id==="screenPost");
     // screens with no search / filter / chips
     var bare=(post || id==="screenAbout" || id==="screenDiscover");
+    // Derived readers (faq/how-to/people) live under Discover, so their list and
+    // post screens carry a back button up to the Discover hub.
+    var derived=((id==="screenList"||id==="screenPost") && mode!=="archive");
     // In split view the list never leaves, so the post pane keeps the list's
-    // chrome (search / filter / chips) and needs no back button.
+    // chrome (search / filter / chips). Archive needs no back button there.
     if(isSplit() && (id==="screenList" || id==="screenPost")){
-      backBtn.hidden=true;
+      backBtn.hidden=!derived;
       searchBtn.hidden=filterBtn.hidden=false;
       chipsEl.hidden=false;
       return;
     }
-    backBtn.hidden=!post;
+    backBtn.hidden=!(post || derived);
     searchBtn.hidden=filterBtn.hidden=bare;
     chipsEl.hidden=bare;
     if(bare) closeSearch();
@@ -154,7 +158,7 @@
   var BRAND="Mr. D's Ventriloquist Journal";
   // Per-mode masthead: lead label + noun for the count.
   var MODEHEAD={archive:[BRAND,"posts"],faq:["FAQ","questions"],
-    materials:["How-to &amp; Materials","posts"],people:["People &amp; Figures","posts"]};
+    "how-to":["How-to &amp; Materials","posts"],people:["People &amp; Figures","posts"]};
   function setHomeTitle(){
     if(tab==="gallery"){
       appTitle.innerHTML=BRAND+' <small>'+galleryFiltered().length.toLocaleString()+' images</small>';
@@ -334,16 +338,17 @@
       discoverEl.appendChild(f);
     }
 
-    // Materials & People clouds — each chip opens that mode's reader, prefiltered
+    // How-to & People clouds — each chip opens that mode's reader, prefiltered.
+    // spec: [route mode, topics.json key, heading, subtitle]
     if(t){
-      [["materials",'<i class="fa-solid fa-screwdriver-wrench"></i> How-to & materials',
+      [["how-to","materials",'<i class="fa-solid fa-screwdriver-wrench"></i> How-to & materials',
         "Browse posts by what they're made of and how."],
-       ["people",'<i class="fa-solid fa-users"></i> People & figures',
+       ["people","people",'<i class="fa-solid fa-users"></i> People & figures',
         "The vents and classic characters Mr. D wrote about."]].forEach(function(spec){
-        var arr=t[spec[0]]||[]; if(!arr.length) return;
+        var arr=t[spec[1]]||[]; if(!arr.length) return;
         var s=el("section","dsec");
-        s.appendChild(el("h2","dsec-h",spec[1]));
-        s.appendChild(el("p","dsec-sub",spec[2]));
+        s.appendChild(el("h2","dsec-h",spec[2]));
+        s.appendChild(el("p","dsec-sub",spec[3]));
         var cloud=el("div","tcloud");
         arr.forEach(function(it){ cloud.appendChild(chip(it.label,it.n,"#/"+spec[0]+"/"+it.slug)); });
         s.appendChild(cloud);
@@ -363,8 +368,18 @@
   $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
   $("#tabDiscover").addEventListener("click",function(){navigate("#/discover")});
   $("#tabAbout").addEventListener("click",function(){navigate("#/about")});
-  // topbar back = browser back
-  backBtn.addEventListener("click",function(){history.back()});
+  // topbar back steps up one level: a phone post -> its list, a derived reader's
+  // list (or its split view) -> the Discover hub. (Archive list shows no back.)
+  backBtn.addEventListener("click",function(){
+    var st=parseHash(), derived=(st.mode && st.mode!=="archive");
+    if(st.view==="post" && !isSplit()){
+      if(derived) navigate(modeDef(st.mode).route);   // faq/how-to/people post -> its list
+      else history.back();                            // archive post -> wherever reading began
+      return;
+    }
+    if(derived){ navigate("#/discover"); return; }    // derived list / split -> Discover
+    history.back();
+  });
 
   // ---------- filtering ----------
   function norm(s){return (s||"").toLowerCase()}
