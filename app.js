@@ -71,7 +71,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="9840c3ff";
+  var VERSION="e854cd53";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -265,6 +265,7 @@
     var now=new Date(), mo=now.getMonth(), da=now.getDate();
     var exact=[], month=[];
     POSTS.forEach(function(p){
+      if(p.guest) return;                 // On this day = Mr. D's own writing, not guest columns
       var dt=parseDate(p.date);
       if(!dt || dt>=OTD_CUTOFF || dt.getMonth()!==mo) return;
       month.push(p); if(dt.getDate()===da) exact.push(p);

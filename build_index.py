@@ -56,6 +56,21 @@ def extract_question(ftext, title):
     q = QLABEL_RE.sub("", q).strip(" -:*•·–— ")
     return ws_re.sub(" ", q).strip(), is_q
 
+# Guest columns — the journal regularly runs "X Writes" / "Written by X" pieces
+# by other contributors (Mark Wade, Bob Abdou, Ken Groves, …). Flag them so the
+# "On this day" highlight can show only Mr. D's own writing; the rest of the app
+# still surfaces them normally.
+GUEST_NAME   = r"[A-Z][\w.'-]+(?: [A-Z][\w.'-]+){0,2}"
+GUEST_WRITES = re.compile(r"^(%s)\s+Writes\b" % GUEST_NAME)
+GUEST_LEAD   = re.compile(r"^(?:Written by|By)\s+([A-Z][\w.'-]+ [A-Z][\w.'-]+(?: [A-Z][\w.'-]+)?)\b")
+GUEST_SELF   = re.compile(r"^(clinton detweiler|clinton|mr\.?\s*d)\b", re.I)  # Mr. D is not a guest
+def is_guest(title, ftext):
+    m = GUEST_WRITES.match(title.strip())
+    if m and not GUEST_SELF.match(m.group(1)): return True
+    m = GUEST_LEAD.match(ftext[:90].strip())
+    if m and not GUEST_SELF.match(m.group(1)): return True
+    return False
+
 # ---- topic vocabularies (curated). Each entry: (slug, label, group, pattern).
 # Matching is case-insensitive over each post's full text; a post counts once.
 MATERIALS = [
@@ -193,6 +208,8 @@ for fn in sorted(os.listdir(POSTS_DIR)):
         rec["fcat"] = classify_faq(title + " " + q)
         if q:
             rec["q"] = q[:240]
+    if is_guest(title, ftext):
+        rec["guest"] = 1
     posts.append(rec)
     ftexts.append(ftext)
 
@@ -273,6 +290,7 @@ print(f"wrote {OUT}: {len(posts)} posts, {total_imgs} image refs, {os.path.getsi
 print(f"  FAQ posts: {faq_n}  ·  posts with related links: {rel_n}")
 fdist = collections.Counter(p.get("fcat") for p in posts if p.get("faq"))
 print("  FAQ categories:", dict(sorted(fdist.items(), key=lambda x: -x[1])))
+print("  guest-column posts (excluded from On this day):", sum(1 for p in posts if p.get("guest")))
 print(f"wrote {TOPICS_OUT}: {len(topics['materials'])} materials, {len(topics['people'])} people/figures")
 for k in ("materials", "people"):
     print(f"  {k}: " + ", ".join(f"{t['label']}({t['n']})" for t in topics[k]))
