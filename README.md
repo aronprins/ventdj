@@ -2,7 +2,7 @@
 
 ## About this archive
 
-This is a preserved, offline copy of **ventdj.blogspot.com** — *"Mr. D's Daily
+This is a preserved copy of **ventdj.blogspot.com** — *"Mr. D's Daily
 Ventriloquist Journal"*, the blog of **Clinton Detweiler** (1936–2013), the man
 who for decades ran **Maher Studios** and, through it, helped teach the world
 to "throw its voice."

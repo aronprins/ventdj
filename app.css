@@ -227,3 +227,52 @@ article.post .content a{word-break:break-word}
   body{display:block}
   .app{max-width:none;height:100vh;height:100dvh;box-shadow:none}
 }
+
+/* =========================================================================
+   Desktop / iPad layer (≥769px). Mobile (≤768px) never sees any of this.
+   The phone column grows into a framed tablet canvas, and the Reader tab
+   becomes a master–detail split view: list on the left, post on the right.
+   ========================================================================= */
+@media(min-width:769px){
+  /* fill the whole window edge-to-edge (no floating frame) */
+  body{display:block}
+  .app{
+    max-width:none;
+    height:100vh;height:100dvh;
+    box-shadow:none;
+  }
+
+  /* gallery fills the wider canvas */
+  .grid{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:6px;padding:6px}
+
+  /* reader & about: a comfortable centered measure rather than edge-to-edge */
+  .viewer{max-width:720px;margin:0 auto;padding:26px 28px 48px}
+  article.post h1{font-size:26px}
+  .about{max-width:720px;margin:0 auto}
+
+  /* ---- split view: the Reader tab shows the list and the post together ---- */
+  .app:has(#tabReader.active) .screens{
+    display:grid;
+    grid-template-columns:minmax(300px,360px) 1fr;
+    grid-template-rows:100%;
+  }
+  .app:has(#tabReader.active) #screenList,
+  .app:has(#tabReader.active) #screenPost{
+    position:static;display:block;min-height:0;overflow:auto;animation:none;
+  }
+  .app:has(#tabReader.active) #screenList{
+    border-right:1px solid var(--line);background:var(--app);
+  }
+  /* the post pane reads against a faintly warmer ground, like an iPad detail view */
+  .app:has(#tabReader.active) #screenPost{background:var(--cream)}
+
+  /* selected row in the list pane — same warm tint as hover, not the accent red */
+  .list .item.selected{background:var(--soft)}
+  /* the chevron is meaningless once the post opens beside the list */
+  .app:has(#tabReader.active) .list .item .chev{display:none}
+
+  /* hover affordances (touch devices never match :hover) */
+  .list .item:hover{background:var(--soft)}
+  .chip:hover{filter:brightness(.97)}
+  .grid figure:hover img{opacity:.85}
+}

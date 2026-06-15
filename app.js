@@ -3,7 +3,12 @@
   var POSTS=[], BYID={}, FILTERED=[], TOTAL="0";
   var tab="reader";
   var galleryItems=[], galleryShown=0, GAL_PAGE=120;
-  var listStale=true, galleryStale=true, renderedPostId=null;
+  var listStale=true, galleryStale=true, renderedPostId=null, selectedId=null;
+
+  // Desktop/iPad shows the Reader tab as a master–detail split (list + post side
+  // by side). On phones (≤768px) this is always false, so behavior is unchanged.
+  var splitMq=window.matchMedia("(min-width:769px)");
+  function isSplit(){return splitMq.matches}
 
   var $=function(s){return document.querySelector(s)};
   var listEl=$("#list"), viewerEl=$("#viewer"), gridEl=$("#grid"),
@@ -20,7 +25,7 @@
             ["lessons","Lessons"],["qa","Q&A"],["people","People"],["events","Events"],["other","Other"]];
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="55364ff4";
+  var VERSION="077097dc";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -59,6 +64,9 @@
   function navigate(h){ if(location.hash===h) render(parseHash()); else location.hash=h; }
   function replaceNav(h){ history.replaceState(null,"",h); render(parseHash()); }
   window.addEventListener("hashchange",function(){render(parseHash())});
+  // Crossing the phone/tablet breakpoint flips the split view on or off, so
+  // re-render the current route to refresh the chrome (back button, chips) and layout.
+  splitMq.addEventListener("change",function(){render(parseHash())});
 
   function render(state){
     state=state||{view:"list"};
@@ -77,6 +85,14 @@
     });
     var post=(id==="screenPost");
     var bare=(post || id==="screenAbout");      // screens with no search / filter / chips
+    // In split view the list never leaves, so the post pane keeps the list's
+    // chrome (search / filter / chips) and needs no back button.
+    if(isSplit() && (id==="screenList" || id==="screenPost")){
+      backBtn.hidden=true;
+      searchBtn.hidden=filterBtn.hidden=false;
+      chipsEl.hidden=false;
+      return;
+    }
     backBtn.hidden=!post;
     searchBtn.hidden=filterBtn.hidden=bare;
     chipsEl.hidden=bare;
@@ -102,6 +118,9 @@
     setTabUI("reader");
     if(listStale){renderList();listStale=false}
     showScreen("screenList"); setHomeTitle(); updateCount();
+    // split view: if no post is open yet, invite a choice in the detail pane
+    if(isSplit() && renderedPostId===null)
+      viewerEl.innerHTML='<div class="empty">Select a post from the list to start reading.</div>';
   }
   function showGallery(){
     setTabUI("gallery");
@@ -229,7 +248,8 @@
     var frag=document.createDocumentFragment();
     FILTERED.forEach(function(p){
       var d=document.createElement("div");
-      d.className="item";
+      d.className="item"+(p.id===selectedId?" selected":"");
+      d.dataset.id=p.id;
       d.innerHTML='<div class="body"><div class="t"></div>'+
         '<div class="dt"><span class="d"></span></div></div><span class="chev"><i class="fa-solid fa-chevron-right"></i></span>';
       d.querySelector(".t").textContent=p.title;
@@ -246,9 +266,29 @@
     listEl.innerHTML=""; listEl.appendChild(frag);
   }
 
+  // Highlight the open post in the list pane (split view) and keep it in sight.
+  function markSelected(id){
+    selectedId=id;
+    var items=listEl.querySelectorAll(".item"), hit=null;
+    Array.prototype.forEach.call(items,function(it){
+      var on=(parseInt(it.dataset.id,10)===id);
+      it.classList.toggle("selected",on);
+      if(on) hit=it;
+    });
+    if(hit && hit.scrollIntoView) hit.scrollIntoView({block:"nearest"});
+  }
+
   function showPost(id){
     var p=BYID[id]; if(!p){navigate("#/");return}
-    appTitle.innerHTML='Reading <small>#'+String(p.id).padStart(4,"0")+' · '+p.date+'</small>';
+    if(isSplit()){
+      // detail-beside-list: keep the Reader tab/title and mark the chosen row
+      setTabUI("reader");
+      if(listStale){renderList();listStale=false}
+      setHomeTitle();
+      markSelected(id);
+    } else {
+      appTitle.innerHTML='Reading <small>#'+String(p.id).padStart(4,"0")+' · '+p.date+'</small>';
+    }
     showScreen("screenPost");
     if(renderedPostId===id) return;            // already rendered (e.g. closing lightbox)
     renderedPostId=id;
