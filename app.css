@@ -348,10 +348,11 @@ article.post .content a{word-break:break-word}
   .about{max-width:720px;margin:0 auto}
 
 
-  /* inline Discover search: field + results match the dashboard width */
+  /* inline Discover search: field + results match the dashboard's inner width
+     (the 1000px grid minus its 28px side padding), so they line up with the cards */
   .dsearch{padding:18px 28px 12px}
-  .dsearch-box,.dsearch-chips{max-width:1000px;margin-left:auto;margin-right:auto}
-  .dresults{max-width:1000px;margin:0 auto;padding-top:6px}
+  .dsearch-box,.dsearch-chips{max-width:calc(1000px - 56px);margin-left:auto;margin-right:auto}
+  .dresults{max-width:calc(1000px - 56px);margin:0 auto;padding-top:6px}
 
   /* ---- discover: a roomier two-column dashboard on wide screens ---- */
   .discover{
