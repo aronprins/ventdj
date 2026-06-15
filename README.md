@@ -111,7 +111,10 @@ python3 build_index.py
 
 | Hash | View |
 | --- | --- |
-| `#/` | post list |
+| `#/` | Discover (home) |
+| `#/reader` | full archive post list |
+| `#/faq`, `#/how-to`, `#/people` | the derived readers (each with its own categories) |
+| `#/<mode>/<category>` | a derived reader pre-filtered (e.g. `#/how-to/basswood`) |
 | `#/gallery` | image gallery |
 | `#/post/<id>` | a single post |
 | `#/photo/<file>` | lightbox (from gallery) |

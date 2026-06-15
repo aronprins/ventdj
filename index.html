@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#85251a">
 <title>Mr. D's Ventriloquist Journal</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="app.css?v=db3bcf0c">
+<link rel="stylesheet" href="app.css?v=02aa282e">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="chips" id="chips"></div>
 
   <main class="screens">
-    <section id="screenList" class="screen active">
+    <section id="screenList" class="screen">
       <div id="list" class="list"></div>
     </section>
     <section id="screenPost" class="screen">
@@ -38,8 +38,8 @@
       <div id="grid" class="grid"></div>
       <div id="sentinel" class="sentinel"></div>
     </section>
-    <section id="screenDiscover" class="screen">
-      <div id="discover" class="discover"></div>
+    <section id="screenDiscover" class="screen active">
+      <div id="discover" class="discover"><div class="empty">Loading…</div></div>
     </section>
     <section id="screenAbout" class="screen">
       <div id="about" class="about"></div>
@@ -47,9 +47,9 @@
   </main>
 
   <nav class="tabbar">
-    <button id="tabReader" class="tab active"><span class="ic"><i class="fa-solid fa-book-open"></i></span>Reader</button>
+    <button id="tabDiscover" class="tab active"><span class="ic"><i class="fa-solid fa-compass"></i></span>Discover</button>
     <button id="tabGallery" class="tab"><span class="ic"><i class="fa-solid fa-images"></i></span>Gallery</button>
-    <button id="tabDiscover" class="tab"><span class="ic"><i class="fa-solid fa-compass"></i></span>Discover</button>
+    <button id="tabReader" class="tab"><span class="ic"><i class="fa-solid fa-book-open"></i></span>Reader</button>
     <button id="tabAbout" class="tab"><span class="ic"><i class="fa-solid fa-circle-info"></i></span>About</button>
   </nav>
 
@@ -93,6 +93,6 @@
   <div id="lbCap" class="lb-cap"></div>
 </div>
 
-<script src="app.js?v=db3bcf0c"></script>
+<script src="app.js?v=02aa282e"></script>
 </body>
 </html>

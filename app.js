@@ -1,7 +1,7 @@
 (function(){
   "use strict";
   var POSTS=[], BYID={}, FILTERED=[], TOTAL="0";
-  var tab="reader";
+  var tab="discover";
   var galleryItems=[], galleryShown=0, GAL_PAGE=120;
   var listStale=true, galleryStale=true, renderedPostId=null, selectedId=null;
 
@@ -44,7 +44,7 @@
       return {tab:"discover",route:"#/"+m,base:function(){return x?x.base:[]},
         chips:function(){return x?x.chips:[["","All"]]},
         match:function(p,c){return !!(x&&x.idset[c]&&x.idset[c][p.id])}}; }
-    return {tab:"reader",route:"#/",base:function(){return POSTS},
+    return {tab:"reader",route:"#/reader",base:function(){return POSTS},
       chips:function(){return CATS},match:function(p,c){return p.cat===c}};
   }
   function postHash(m,id){return (m==="archive"?"#/post/":"#/"+m+"/post/")+id}
@@ -71,7 +71,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="db3bcf0c";
+  var VERSION="02aa282e";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -91,21 +91,24 @@
   });
 
   // ---------- hash routing (GitHub Pages friendly) ----------
-  // #/                       -> list
+  // #/                       -> discover (home)
+  // #/reader                 -> the full archive list
   // #/gallery                -> gallery
-  // #/post/<id>              -> post
+  // #/post/<id>              -> post (archive)
   // #/photo/<file>           -> lightbox (gallery context)
   // #/post/<id>/photo/<file> -> lightbox (in-post context)
-  // Reader-like routes can carry a mode prefix (faq/how-to/people) and an
-  // optional category slug, e.g. #/how-to/basswood or #/faq/post/50/photo/x.
+  // Derived readers carry a mode prefix (faq/how-to/people) and an optional
+  // category slug, e.g. #/how-to/basswood or #/faq/post/50/photo/x.
   function parseHash(){
     var parts=location.hash.replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
+    if(!parts.length) return {view:"discover"};          // home
     if(parts[0]==="about") return {view:"about"};
     if(parts[0]==="discover") return {view:"discover"};
+    if(parts[0]==="gallery") return {view:"gallery"};
+    if(parts[0]==="photo") return {view:"lightbox",ctx:"gallery",mode:"archive",f:parts[1]};
     var mode="archive";
-    if(parts[0]==="faq"||parts[0]==="how-to"||parts[0]==="people"){ mode=parts[0]; parts=parts.slice(1); }
-    if(mode==="archive" && parts[0]==="gallery") return {view:"gallery"};
-    if(mode==="archive" && parts[0]==="photo") return {view:"lightbox",ctx:"gallery",mode:mode,f:parts[1]};
+    if(parts[0]==="reader") parts=parts.slice(1);        // explicit archive list
+    else if(parts[0]==="faq"||parts[0]==="how-to"||parts[0]==="people"){ mode=parts[0]; parts=parts.slice(1); }
     if(parts[0]==="post"){
       var id=parseInt(parts[1],10);
       if(parts[2]==="photo") return {view:"lightbox",ctx:"post",mode:mode,id:id,f:parts[3]};
@@ -121,7 +124,7 @@
   splitMq.addEventListener("change",function(){render(parseHash())});
 
   function render(state){
-    state=state||{view:"list",mode:"archive"};
+    state=state||{view:"discover"};
     if(state.view!=="lightbox") hideLb();
     if(state.view==="gallery")       { setReading(false); showGallery(); }
     else if(state.view==="about")    { setReading(false); showAbout(); }
@@ -364,9 +367,9 @@
     ["products","Course & store"],["other","Other"]];
 
   // bottom tabs
-  $("#tabReader").addEventListener("click",function(){navigate("#/")});
+  $("#tabDiscover").addEventListener("click",function(){navigate("#/")});
   $("#tabGallery").addEventListener("click",function(){navigate("#/gallery")});
-  $("#tabDiscover").addEventListener("click",function(){navigate("#/discover")});
+  $("#tabReader").addEventListener("click",function(){navigate("#/reader")});
   $("#tabAbout").addEventListener("click",function(){navigate("#/about")});
   // topbar back steps up one level: a phone post -> its list, a derived reader's
   // list (or its split view) -> the Discover hub. (Archive list shows no back.)
@@ -377,7 +380,7 @@
       else history.back();                            // archive post -> wherever reading began
       return;
     }
-    if(derived){ navigate("#/discover"); return; }    // derived list / split -> Discover
+    if(derived){ navigate("#/"); return; }            // derived list / split -> Discover (home)
     history.back();
   });
 

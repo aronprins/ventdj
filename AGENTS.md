@@ -86,7 +86,12 @@ with `categories.json`.
 
 - Plain ES5-style JS in one IIFE in `app.js`, no bundler, no dependencies
   (Font Awesome is the only external asset). Keep it that way unless asked.
-- Routing is hash-based (`#/`, `#/gallery`, `#/post/<id>`, `#/photo/<file>`,
-  `#/post/<id>/photo/<file>`) for GitHub Pages deep-linking. Preserve these.
+- Routing is hash-based for GitHub Pages deep-linking; preserve these. `#/` is
+  Discover (home); `#/reader` is the archive list. The reader is *mode-aware*:
+  `archive` plus three derived readers (`faq`, `how-to`, `people`), each a
+  prefix (`#/faq`, `#/how-to`, `#/people`) with its own chips and post subset,
+  an optional `/<category>` segment, and `/post/<id>` (`#/post/<id>` stays
+  unprefixed for archive). Also `#/gallery`, `#/photo/<file>`,
+  `#/post/<id>/photo/<file>`.
 - The lightbox supports pinch-zoom / double-tap / drag-pan / wheel-zoom; swipe
   navigation and swipe-down-to-close apply only when not zoomed in.
