@@ -72,7 +72,7 @@
   }
 
   // Bump VERSION on each deploy to bust mobile caches (must match ?v= in index.html).
-  var VERSION="efdd7034";
+  var VERSION="c4091585";
 
   // ---------- load ----------
   listSkeleton();                 // show loaders until data arrives
@@ -293,10 +293,34 @@
     renderDSearchChips();
     runDSearch();                               // hub when empty, results if a query persists
     if(discoverEl.dataset.ready) return;        // built once; static derived data
+    discoverSkeleton();                         // shimmer until topics.json arrives
     loadTopics(function(t){ renderDiscover(t); discoverEl.dataset.ready="1"; });
   }
 
   function el(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
+  // A short body excerpt (drops a leading repeat of the title), for cards/rows.
+  function excerpt(p,n){
+    var t=p.text||"";
+    if(p.title && t.slice(0,p.title.length).toLowerCase()===p.title.toLowerCase()) t=t.slice(p.title.length);
+    t=t.replace(/^[\s\-–—:*•·]+/,"").trim();
+    return t.length>n ? t.slice(0,n).replace(/\s+\S*$/,"")+"…" : t;
+  }
+  // Shimmer placeholders shown while topics.json (the clouds) loads.
+  function discoverSkeleton(){
+    function line(w){return '<div class="skel" style="height:12px;width:'+w+'"></div>'}
+    var card='<div class="dcard"><div class="skel" style="height:11px;width:46px;margin-bottom:8px"></div>'+
+      line("90%")+'<div style="height:6px"></div>'+line("70%")+'</div>';
+    var sec='<section class="dsec"><div class="skel" style="height:14px;width:160px;margin-bottom:14px"></div>';
+    var html=
+      sec+'<div class="drail">'+card+card+card+'</div></section>'+
+      sec+line("80%")+'<div style="height:8px"></div>'+line("60%")+'</section>'+
+      sec+'<div class="tcloud">'+
+        '<div class="skel" style="height:30px;width:96px;border-radius:999px"></div>'+
+        '<div class="skel" style="height:30px;width:78px;border-radius:999px"></div>'+
+        '<div class="skel" style="height:30px;width:110px;border-radius:999px"></div>'+
+        '<div class="skel" style="height:30px;width:84px;border-radius:999px"></div></section>';
+    discoverEl.innerHTML=html;
+  }
   function postRow(p,subtitle,hash){
     var d=el("button","drow");
     d.innerHTML='<span class="drow-b"><span class="drow-t"></span>'+
@@ -393,9 +417,10 @@
       var rail=el("div","drail");
       otd.posts.forEach(function(p){
         var c=el("button","dcard");
-        c.innerHTML='<span class="dcard-y"></span><span class="dcard-t"></span>';
+        c.innerHTML='<span class="dcard-y"></span><span class="dcard-t"></span><span class="dcard-x"></span>';
         c.querySelector(".dcard-y").textContent=p.date;
         c.querySelector(".dcard-t").textContent=p.title;
+        c.querySelector(".dcard-x").textContent=excerpt(p,120);
         c.addEventListener("click",function(){navigate("#/post/"+p.id)});
         rail.appendChild(c);
       });
@@ -612,6 +637,7 @@
     chipsEl.innerHTML=""; chipsEl.appendChild(frag);
   }
   renderChips();
+  discoverSkeleton();             // Discover is the landing screen — show shimmer until data lands
 
   // ---------- list ----------
   function listSkeleton(){
